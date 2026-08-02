@@ -1,21 +1,19 @@
 """Discord Rules & Moderation Bot."""
 
-import asyncio
-import logging
 import os
-import random
 import re
-
+import random
+import logging
+import asyncio
 import discord
 from dotenv import load_dotenv
 
-from rules import RULES
-from emojis import EMOJIS
 from keep_alive import keep_alive
 import moderation as mod
+from rules import RULES
+from emojis import EMOJIS
 
 load_dotenv()
-
 TOKEN = os.environ.get("DISCORD_TOKEN")
 PREFIX = "?"
 MAX_RULE = max(RULES.keys())
