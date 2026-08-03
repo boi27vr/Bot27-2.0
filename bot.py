@@ -30,7 +30,6 @@ intents.members = True
 
 client = discord.Client(intents=intents)
 
-_MOD_RE = re.compile(r"^\?(warn|weekban|permban|unban)\s+(.+)$", re.IGNORECASE)
 _RULE_RE = re.compile(r"^\?rule\s+(\d+)$", re.IGNORECASE)
 _MEOW_RE = re.compile(r"^\?meow(?:\s+(.+))?$", re.IGNORECASE)
 _EMOJI_RE = re.compile(r"^\?emoji\s+(.+)$", re.IGNORECASE)
@@ -124,6 +123,18 @@ async def handle_falseban(message, target):
     await asyncio.sleep(3)
     await ban_msg.edit(content=f"🚫 **{target}** has been permanently banned from the server.\n**Reason:** Manual action by {message.author.mention}\n\n*jk you're fine lol.*")
 
+async def handle_meow(message, text):
+    if text:
+        await message.channel.send(f"🐱 Meow! {text}")
+    else:
+        await message.channel.send("🐱 Meow!")
+
+async def handle_rule(message, rule_num):
+    await message.channel.send(f"📜 **Rule #{rule_num}:** Be respectful and follow server guidelines!")
+
+async def handle_emoji(message, emoji_name):
+    await message.channel.send(f"😃 Displaying emoji info for: `{emoji_name}`")
+
 @client.event
 async def on_ready():
     print(f"Logged in as {client.user} (ID: {client.user.id})")
@@ -135,10 +146,6 @@ async def on_message(message):
 
     content = message.content.strip()
 
-    if (message.guild and not message.author.guild_permissions.manage_messages and mod.contains_slur(content)):
-        await handle_slur(message)
-        return
-
     if not content.startswith(PREFIX):
         return
 
@@ -146,23 +153,6 @@ async def on_message(message):
 
     if lower in ("?banlist", "?bans"):
         await handle_banlist(message)
-        return
-
-    if lower in ("?testwarn", "?testweekban", "?testpermban", "?testunban"):
-        try:
-            await message.delete()
-        except discord.HTTPException:
-            pass
-        await handle_test(message, lower.lstrip("?"))
-        return
-
-    m = _MOD_RE.match(content)
-    if m:
-        try:
-            await message.delete()
-        except discord.HTTPException:
-            pass
-        await handle_manual_mod(message, m.group(1).lower(), m.group(2))
         return
 
     m = _RULE_RE.match(content)
