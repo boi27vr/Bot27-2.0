@@ -249,7 +249,21 @@ async def on_message(message):
     m = _EMOJI_RE.match(content)
     if m:
         await handle_emoji(message, m.group(1).strip()); return
-
+if lower in ("?banlist", "?bans"):
+        if not message.author.guild_permissions.ban_members:
+            await message.channel.send("❌ You need the **Ban Members** permission to view the ban list.")
+            return
+        banned_users = [entry async for entry in message.guild.bans()]
+        if not banned_users:
+            await message.channel.send("🎉 There are currently **no banned users** in this server!")
+            return
+        ban_list = [f"• **{e.user.name}** (`ID: {e.user.id}`) — *{e.reason or 'No reason provided'}*" for e in banned_users]
+        response = "**🚫 Currently Banned Users:**\n" + "\n".join(ban_list)
+        if len(response) > 2000:
+            await message.channel.send(f"There are **{len(banned_users)}** banned users (list is too long to display).")
+        else:
+            await message.channel.send(response)
+        return
 
 def main():
     if not TOKEN:
