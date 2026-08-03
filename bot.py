@@ -33,6 +33,19 @@ client = discord.Client(intents=intents)
 user_message_counts = {}
 user_file_counts = {}
 
+SERVER_RULES = {
+    1: "Absolutely no hate speech, toxicity, or bullying! Any form of hate, including, but not limited to, homopbia, transphobia, xenophobia, sexism, or racism can result in a permanent ban!",
+    2: "No offensive content. Dark humor is allowed but make sure nobody gets offended.",
+    3: "Be respectful. You don't have to be all sunshine and rainbows but no harassment, over the top swearing, or personal attacks.\n✅️ \"What the ####\"\n❌️ \"Shut the #### up\"",
+    4: "No inappropriate content! It doesn't have to be exactly family friendly, but don't act crazy. NSFW of any kind is not allowed. This includes, but is not limited to, nudity, extreme gore, excessive horror, etc.",
+    5: "Follow Discord's Terms of Service",
+    6: "Use channels properly. No spam. We have meme and spam channels for that. Also, please stay on topic. There is an off topic channel.",
+    7: "Listen to staff. In order to keep a friendly and safe environment, please listen to staff and do what they say.",
+    8: "No impersonating. This includes staff, helpers, or anyone else in charge.",
+    9: "Keep drama out. It is unbelievably annoying...",
+    10: "Have common sense. If it feels like it might cause problems, just don't do it!"
+}
+
 _MOD_RE = re.compile(r"^\?(warn|weekban|permban|unban|tensecban|10secban)(?:\s+(.+))?$", re.IGNORECASE)
 _RULE_RE = re.compile(r"^\?rule\s*(\d*)?$", re.IGNORECASE)
 _MEOW_RE = re.compile(r"^\?meow\s*(\d*)?(?:\s+(.+))?$", re.IGNORECASE)
@@ -146,9 +159,17 @@ async def handle_manual_mod(message, action, target_and_reason):
 
 async def handle_rule(message, rule_num):
     if not rule_num:
-        await message.channel.send("📜 **`?rule` Command Guide**\nUse `?rule <number>` or `?rule<number>` to view a server rule!\n\n**Example:** `?rule 7` or `?rule7`")
+        await message.channel.send("📜 **`?rule` Command Guide**\nUse `?rule <number>` or `?rule<number>` to view a server rule! (e.g. `?rule 7` or `?rule7`)")
         return
-    await message.channel.send(f"📜 **Rule #{rule_num}:** Be respectful and follow server guidelines!")
+
+    try:
+        num = int(rule_num)
+        if num in SERVER_RULES:
+            await message.channel.send(f"📜 **Rule #{num}:** {SERVER_RULES[num]}")
+        else:
+            await message.channel.send(f"No rule number {num}. Please enter a number between 1-10 after ?rule.")
+    except ValueError:
+        await message.channel.send("Please enter a valid number after ?rule.")
 
 async def handle_meow(message, count_str, text):
     if count_str:
