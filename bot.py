@@ -1,6 +1,7 @@
 import os
 import re
 import random
+import string
 import discord
 from flask import Flask
 from threading import Thread
@@ -33,6 +34,8 @@ _RULE_RE = re.compile(r"^\?rule\s+(\d+)$", re.IGNORECASE)
 _MEOW_RE = re.compile(r"^\?meow(?:\s+(.+))?$", re.IGNORECASE)
 _EMOJI_RE = re.compile(r"^\?emoji\s+(.+)$", re.IGNORECASE)
 _DICE_RE = re.compile(r"^\?dice(\d+)$", re.IGNORECASE)
+_NONSENSE_RE = re.compile(r"^\?nonsense(\d*)?$", re.IGNORECASE)
+_UWU_RE = re.compile(r"^\?uwu(?:\_\((.+)\))?$", re.IGNORECASE)
 
 async def handle_banlist(message):
     if not message.author.guild_permissions.ban_members:
@@ -73,6 +76,38 @@ async def handle_dice(message, limit_str):
 
     roll = random.randint(1, limit)
     await message.channel.send(f"🎲 You rolled a **{roll:,}** (out of **{limit:,}**)!")
+
+async def handle_nonsense(message, length_str):
+    if not length_str:
+        await message.channel.send("✨ **`?nonsense` Command Guide** ✨\nGenerates a random mix of letters, numbers, and symbols!\n\n**Usage:** `?nonsense<length>`\n**Example:** `?nonsense12` or `?nonsense100` *(Max: 2,000 characters)*")
+        return
+
+    try:
+        length = int(length_str)
+    except ValueError:
+        await message.channel.send("❌ Please provide a valid number! Example: `?nonsense15`")
+        return
+
+    if length < 1:
+        await message.channel.send("❌ Length must be at least **1**!")
+        return
+
+    if length > 2000:
+        await message.channel.send("❌ Maximum length is **2,000** characters (Discord limit)!")
+        return
+
+    chars = string.ascii_letters + string.digits + string.punctuation
+    junk = "".join(random.choices(chars, k=length))
+
+    await message.channel.send(junk)
+
+async def handle_uwu(message, text):
+    if not text:
+        await message.channel.send("✨ **`?uwu` Command Guide** ✨\nConvewwts youww text into uwu language! :3\n\n**Usage:** `?uwu_(youww text hewe)`\n**Exampwe:** `?uwu_(Hello there!)` -> `Hewwo thewe! :3`")
+        return
+
+    uwu_text = text.replace('r', 'w').replace('R', 'W').replace('l', 'w').replace('L', 'W')
+    await message.channel.send(f"{uwu_text} :3")
 
 @client.event
 async def on_ready():
@@ -125,6 +160,16 @@ async def on_message(message):
     m = _DICE_RE.match(content)
     if m:
         await handle_dice(message, m.group(1))
+        return
+
+    m = _NONSENSE_RE.match(content)
+    if m:
+        await handle_nonsense(message, m.group(1))
+        return
+
+    m = _UWU_RE.match(content)
+    if m:
+        await handle_uwu(message, m.group(1))
         return
 
 def main():
