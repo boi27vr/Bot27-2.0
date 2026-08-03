@@ -1,5 +1,6 @@
 import os
 import re
+import random
 import discord
 from flask import Flask
 from threading import Thread
@@ -31,6 +32,7 @@ _MOD_RE = re.compile(r"^\?(warn|weekban|permban|unban)\s+(.+)$", re.IGNORECASE)
 _RULE_RE = re.compile(r"^\?rule\s+(\d+)$", re.IGNORECASE)
 _MEOW_RE = re.compile(r"^\?meow(?:\s+(.+))?$", re.IGNORECASE)
 _EMOJI_RE = re.compile(r"^\?emoji\s+(.+)$", re.IGNORECASE)
+_DICE_RE = re.compile(r"^\?dice(\d+)$", re.IGNORECASE)
 
 async def handle_banlist(message):
     if not message.author.guild_permissions.ban_members:
@@ -53,6 +55,24 @@ async def handle_banlist(message):
         await message.channel.send(f"There are **{len(banned_users)}** banned users (list is too long to display).")
     else:
         await message.channel.send(response)
+
+async def handle_dice(message, limit_str):
+    try:
+        limit = int(limit_str)
+    except ValueError:
+        await message.channel.send("❌ Please enter a valid number! Example: `?dice6`")
+        return
+
+    if limit < 1:
+        await message.channel.send("❌ The number must be at least **1**!")
+        return
+
+    if limit > 1000000:
+        await message.channel.send("❌ The maximum limit is **1,000,000**!")
+        return
+
+    roll = random.randint(1, limit)
+    await message.channel.send(f"🎲 You rolled a **{roll:,}** (out of **{limit:,}**)!")
 
 @client.event
 async def on_ready():
@@ -94,12 +114,17 @@ async def on_message(message):
 
     m = _MEOW_RE.match(content)
     if m:
-        await handle_meow(message, m.group(1).strip())
+        await handle_meow(message, m.group(1).strip() if m.group(1) else "")
         return
 
     m = _EMOJI_RE.match(content)
     if m:
         await handle_emoji(message, m.group(1).strip())
+        return
+
+    m = _DICE_RE.match(content)
+    if m:
+        await handle_dice(message, m.group(1))
         return
 
 def main():
