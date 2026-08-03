@@ -157,6 +157,35 @@ async def handle_manual_mod(message, action, target_and_reason):
         except discord.Forbidden:
             await message.channel.send("❌ I lack permissions to unban users.")
 
+async def handle_commands_list(message):
+    if not (message.author.guild_permissions.administrator or message.author.guild_permissions.ban_members):
+        await message.channel.send("🔒 **Access Denied:** You must be an Administrator or Moderator to view the command list.")
+        return
+
+    commands_text = (
+        "👑 **ADMIN & MODERATION COMMANDS**\n"
+        "• `?commands` or `?help` - Displays this admin command list.\n"
+        "• `?warn @User [reason]` - Warns a user (with a 10s delay).\n"
+        "• `?tensecban @User [reason]` - Temporary 10-second ban.\n"
+        "• `?weekban @User [reason]` - 7-day server ban.\n"
+        "• `?permban @User [reason]` - Permanent server ban.\n"
+        "• `?unban <User ID / Name>` - Unbans a user.\n"
+        "• `?banlist` or `?bans` - Views all banned users.\n"
+        "• `?falseban_(name)` - Sends a fake ban prank message.\n\n"
+        "📊 **STATS & TRACKING COMMANDS**\n"
+        "• `?messages [@User]` - Checks total messages sent since bot went online.\n"
+        "• `?files [@User]` - Checks total files/attachments uploaded since bot went online.\n\n"
+        "📜 **SERVER INFO COMMANDS**\n"
+        "• `?rule <1-10>` or `?rule<1-10>` - Displays specific server rule.\n\n"
+        "🎉 **FUN & UTILITY COMMANDS**\n"
+        "• `?meow [count]` - Sends meows (max 50).\n"
+        "• `?dice<limit>` - Rolls a dice up to specified limit.\n"
+        "• `?nonsense<length>` - Generates random string of text.\n"
+        "• `?uwu_(text)` - Translates text to owo format.\n"
+        "• `?emoji <emojiname>` - Displays emoji info."
+    )
+    await message.channel.send(commands_text)
+
 async def handle_rule(message, rule_num):
     if not rule_num:
         await message.channel.send("📜 **`?rule` Command Guide**\nUse `?rule <number>` or `?rule<number>` to view a server rule! (e.g. `?rule 7` or `?rule7`)")
@@ -313,6 +342,10 @@ async def on_message(message):
         return
 
     lower = content.lower()
+
+    if lower in ("?commands", "?help"):
+        await handle_commands_list(message)
+        return
 
     if lower in ("?banlist", "?bans"):
         await handle_banlist(message)
