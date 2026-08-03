@@ -33,7 +33,7 @@ _MOD_RE = re.compile(r"^\?(warn|weekban|permban|unban)\s+(.+)$", re.IGNORECASE)
 _RULE_RE = re.compile(r"^\?rule\s+(\d+)$", re.IGNORECASE)
 _MEOW_RE = re.compile(r"^\?meow(?:\s+(.+))?$", re.IGNORECASE)
 _EMOJI_RE = re.compile(r"^\?emoji\s+(.+)$", re.IGNORECASE)
-_DICE_RE = re.compile(r"^\?dice(\d+)$", re.IGNORECASE)
+_DICE_RE = re.compile(r"^\?dice(\d*)?$", re.IGNORECASE)
 _NONSENSE_RE = re.compile(r"^\?nonsense(\d*)?$", re.IGNORECASE)
 _UWU_RE = re.compile(r"^\?uwu(?:\_\((.+)\))?$", re.IGNORECASE)
 
@@ -60,6 +60,10 @@ async def handle_banlist(message):
         await message.channel.send(response)
 
 async def handle_dice(message, limit_str):
+    if not limit_str:
+        await message.channel.send("🎲 **`?dice` Command Guide** 🎲\nRolls a random number from 1 up to your chosen limit!\n\n**Usage:** `?dice<limit>`\n**Example:** `?dice6` or `?dice20` *(Max: 1,000,000)*")
+        return
+
     try:
         limit = int(limit_str)
     except ValueError:
