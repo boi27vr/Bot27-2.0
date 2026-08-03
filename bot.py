@@ -30,13 +30,31 @@ intents.members = True
 
 client = discord.Client(intents=intents)
 
+_MOD_RE = re.compile(r"^\?(warn|weekban|permban|unban)\s+(.+)$", re.IGNORECASE)
 _RULE_RE = re.compile(r"^\?rule\s+(\d+)$", re.IGNORECASE)
-_MEOW_RE = re.compile(r"^\?meow(?:\s+(.+))?$", re.IGNORECASE)
+_MEOW_RE = re.compile(r"^\?meow(\d*)?(?:\s+(.+))?$", re.IGNORECASE)
 _EMOJI_RE = re.compile(r"^\?emoji\s+(.+)$", re.IGNORECASE)
 _DICE_RE = re.compile(r"^\?dice(\d*)?$", re.IGNORECASE)
 _NONSENSE_RE = re.compile(r"^\?nonsense(\d*)?$", re.IGNORECASE)
 _UWU_RE = re.compile(r"^\?uwu(?:\_\((.+)\))?$", re.IGNORECASE)
 _FALSEBAN_RE = re.compile(r"^\?falseban(?:\_\((.+)\))?$", re.IGNORECASE)
+
+async def handle_manual_mod(message, action, target_and_reason):
+    parts = target_and_reason.split(" ", 1)
+    target = parts[0]
+    reason = parts[1] if len(parts) > 1 else "No reason provided."
+
+    if action == "warn":
+        await message.channel.send(f"⚠️ **{target}** has been warned.\n**Reason:** {reason}")
+    elif action == "weekban":
+        await message.channel.send(f"⏳ **{target}** has been banned for 7 days.\n**Reason:** {reason}")
+    elif action == "permban":
+        await message.channel.send(f"🚫 **{target}** has been permanently banned.\n**Reason:** {reason}")
+    elif action == "unban":
+        await message.channel.send(f"✅ **{target}** has been unbanned.")
+
+async def handle_test(message, test_type):
+    await message.channel.send(f"🧪 **Test Executed:** `{test_type}` command test successful for {message.author.mention}!")
 
 async def handle_banlist(message):
     if not message.author.guild_permissions.ban_members:
@@ -123,11 +141,20 @@ async def handle_falseban(message, target):
     await asyncio.sleep(3)
     await ban_msg.edit(content=f"🚫 **{target}** has been permanently banned from the server.\n**Reason:** Manual action by {message.author.mention}\n\n*jk you're fine lol.*")
 
-async def handle_meow(message, text):
-    if text:
-        await message.channel.send(f"🐱 Meow! {text}")
-    else:
-        await message.channel.send("🐱 Meow!")
+async def handle_meow(message, count_str, text):
+    if count_str:
+        try:
+            count = int(count_str)
+            if count < 1 or count > 50:
+                await message.channel.send("meow :3")
+                return
+            meows = " ".join(["meow"] * count)
+            await message.channel.send(f"{meows} :3")
+            return
+        except ValueError:
+            pass
+
+    await message.channel.send("meow :3")
 
 async def handle_rule(message, rule_num):
     await message.channel.send(f"📜 **Rule #{rule_num}:** Be respectful and follow server guidelines!")
@@ -157,6 +184,23 @@ async def on_message(message):
         await handle_banlist(message)
         return
 
+    if lower in ("?testwarn", "?testweekban", "?testpermban", "?testunban"):
+        try:
+            await message.delete()
+        except discord.HTTPException:
+            pass
+        await handle_test(message, lower.lstrip("?"))
+        return
+
+    m = _MOD_RE.match(content)
+    if m:
+        try:
+            await message.delete()
+        except discord.HTTPException:
+            pass
+        await handle_manual_mod(message, m.group(1).lower(), m.group(2))
+        return
+
     m = _RULE_RE.match(content)
     if m:
         await handle_rule(message, m.group(1).strip())
@@ -164,7 +208,7 @@ async def on_message(message):
 
     m = _MEOW_RE.match(content)
     if m:
-        await handle_meow(message, m.group(1).strip() if m.group(1) else "")
+        await handle_meow(message, m.group(1), m.group(2).strip() if m.group(2) else "")
         return
 
     m = _EMOJI_RE.match(content)
