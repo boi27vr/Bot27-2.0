@@ -30,14 +30,19 @@ intents.members = True
 
 client = discord.Client(intents=intents)
 
+user_message_counts = {}
+user_file_counts = {}
+
 _MOD_RE = re.compile(r"^\?(warn|weekban|permban|unban|tensecban|10secban)(?:\s+(.+))?$", re.IGNORECASE)
-_RULE_RE = re.compile(r"^\?rule\s+(\d+)$", re.IGNORECASE)
-_MEOW_RE = re.compile(r"^\?meow(\d*)?(?:\s+(.+))?$", re.IGNORECASE)
-_EMOJI_RE = re.compile(r"^\?emoji\s+(.+)$", re.IGNORECASE)
-_DICE_RE = re.compile(r"^\?dice(\d*)?$", re.IGNORECASE)
-_NONSENSE_RE = re.compile(r"^\?nonsense(\d*)?$", re.IGNORECASE)
+_RULE_RE = re.compile(r"^\?rule\s*(\d*)?$", re.IGNORECASE)
+_MEOW_RE = re.compile(r"^\?meow\s*(\d*)?(?:\s+(.+))?$", re.IGNORECASE)
+_EMOJI_RE = re.compile(r"^\?emoji\s*(.+)?$", re.IGNORECASE)
+_DICE_RE = re.compile(r"^\?dice\s*(\d*)?$", re.IGNORECASE)
+_NONSENSE_RE = re.compile(r"^\?nonsense\s*(\d*)?$", re.IGNORECASE)
 _UWU_RE = re.compile(r"^\?uwu(?:\_\((.+)\))?$", re.IGNORECASE)
 _FALSEBAN_RE = re.compile(r"^\?falseban(?:\_\((.+)\))?$", re.IGNORECASE)
+_MESSAGES_RE = re.compile(r"^\?messages(?:\s+(.+))?$", re.IGNORECASE)
+_FILES_RE = re.compile(r"^\?files(?:\s+(.+))?$", re.IGNORECASE)
 
 async def auto_unban_10s(guild, user, channel):
     await asyncio.sleep(10)
@@ -70,7 +75,9 @@ async def handle_manual_mod(message, action, target_and_reason):
 
     if action == "warn":
         target_name = member.mention if member else raw_target
-        await message.channel.send(f"⚠️ **{target_name}** has been warned.\n**Reason:** {reason}")
+        await message.channel.send(f"⚠️ **{target_name}** will receive a warning in **10 seconds**...\n**Reason:** {reason}")
+        await asyncio.sleep(10)
+        await message.channel.send(f"⚠️ **{target_name}** has been officially warned!\n**Reason:** {reason}")
 
     elif action in ("tensecban", "10secban"):
         if not member:
@@ -78,9 +85,12 @@ async def handle_manual_mod(message, action, target_and_reason):
             return
 
         user = member
+        await message.channel.send(f"⏱️ **{user.name}** will be banned for 10 seconds starting in **10 seconds**...\n**Reason:** {reason}")
+        await asyncio.sleep(10)
+
         try:
             await member.ban(reason=f"[10-Sec Ban] {reason}", delete_message_days=0)
-            await message.channel.send(f"⏱️ **{user.name}** has been banned for **10 seconds**!\n**Reason:** {reason}")
+            await message.channel.send(f"⏱️ **{user.name}** has now been banned for **10 seconds**!\n**Reason:** {reason}")
             asyncio.create_task(auto_unban_10s(message.guild, user, message.channel))
         except discord.Forbidden:
             await message.channel.send("❌ **Failed:** My role is lower than this user, or I lack **Ban Members** permission.")
@@ -92,9 +102,12 @@ async def handle_manual_mod(message, action, target_and_reason):
             await message.channel.send(f"❌ Could not find member `{raw_target}` in this server.")
             return
 
+        await message.channel.send(f"⏱️ **{member.name}** will be **permanently banned** in **10 seconds**...\n**Reason:** {reason}")
+        await asyncio.sleep(10)
+
         try:
             await member.ban(reason=reason, delete_message_days=0)
-            await message.channel.send(f"🚫 **{member.name}** has been permanently banned.\n**Reason:** {reason}")
+            await message.channel.send(f"🚫 **{member.name}** has been permanently banned from the server.\n**Reason:** {reason}")
         except discord.Forbidden:
             await message.channel.send("❌ **Failed:** My role is lower than this user, or I lack **Ban Members** permission.")
 
@@ -102,6 +115,9 @@ async def handle_manual_mod(message, action, target_and_reason):
         if not member:
             await message.channel.send(f"❌ Could not find member `{raw_target}` in this server.")
             return
+
+        await message.channel.send(f"⏱️ **{member.name}** will be **banned for 7 days** in **10 seconds**...\n**Reason:** {reason}")
+        await asyncio.sleep(10)
 
         try:
             await member.ban(reason=f"[7-Day Ban] {reason}", delete_message_days=7)
@@ -127,6 +143,44 @@ async def handle_manual_mod(message, action, target_and_reason):
             await message.channel.send(f"✅ **{user_to_unban.name}** has been unbanned.")
         except discord.Forbidden:
             await message.channel.send("❌ I lack permissions to unban users.")
+
+async def handle_rule(message, rule_num):
+    if not rule_num:
+        await message.channel.send("📜 **`?rule` Command Guide**\nUse `?rule <number>` or `?rule<number>` to view a server rule!\n\n**Example:** `?rule 7` or `?rule7`")
+        return
+    await message.channel.send(f"📜 **Rule #{rule_num}:** Be respectful and follow server guidelines!")
+
+async def handle_meow(message, count_str, text):
+    if count_str:
+        try:
+            count = int(count_str)
+            if count > 50:
+                await message.channel.send("Sowwy! Max meow is 50 :3")
+                return
+            if count >= 1:
+                meows = " ".join(["meow"] * count)
+                await message.channel.send(f"{meows} :3")
+                return
+        except ValueError:
+            pass
+
+    await message.channel.send("meow :3")
+
+async def handle_messages(message, target_str):
+    target_user = message.author
+    if message.mentions:
+        target_user = message.mentions[0]
+    
+    count = user_message_counts.get(target_user.id, 0)
+    await message.channel.send(f"💬 **{target_user.name}** has sent **{count:,}** message(s) since I was online!")
+
+async def handle_files(message, target_str):
+    target_user = message.author
+    if message.mentions:
+        target_user = message.mentions[0]
+    
+    count = user_file_counts.get(target_user.id, 0)
+    await message.channel.send(f"📁 **{target_user.name}** has sent **{count:,}** file(s) since I was online!")
 
 async def handle_test(message, test_type):
     await message.channel.send(f"🧪 **Test Executed:** `{test_type}` command test successful for {message.author.mention}!")
@@ -159,7 +213,7 @@ async def handle_banlist(message):
 
 async def handle_dice(message, limit_str):
     if not limit_str:
-        await message.channel.send("🎲 **`?dice` Command Guide** 🎲\nRolls a random number from 1 up to your chosen limit!\n\n**Usage:** `?dice<limit>`\n**Example:** `?dice6` or `?dice20` *(Max: 1,000,000)*")
+        await message.channel.send("🎲 **Usage:** `?dice<limit>` (e.g. `?dice6` or `?dice20`)")
         return
 
     try:
@@ -168,12 +222,8 @@ async def handle_dice(message, limit_str):
         await message.channel.send("❌ Please enter a valid number! Example: `?dice6`")
         return
 
-    if limit < 1:
-        await message.channel.send("❌ The number must be at least **1**!")
-        return
-
-    if limit > 1000000:
-        await message.channel.send("❌ The maximum limit is **1,000,000**!")
+    if limit < 1 or limit > 1000000:
+        await message.channel.send("❌ Limit must be between 1 and 1,000,000!")
         return
 
     roll = random.randint(1, limit)
@@ -181,31 +231,26 @@ async def handle_dice(message, limit_str):
 
 async def handle_nonsense(message, length_str):
     if not length_str:
-        await message.channel.send("✨ **`?nonsense` Command Guide** ✨\nGenerates a random mix of letters, numbers, and symbols!\n\n**Usage:** `?nonsense<length>`\n**Example:** `?nonsense12` or `?nonsense100` *(Max: 2,000 characters)*")
+        await message.channel.send("✨ **Usage:** `?nonsense<length>` (e.g. `?nonsense12`)")
         return
 
     try:
         length = int(length_str)
     except ValueError:
-        await message.channel.send("❌ Please provide a valid number! Example: `?nonsense15`")
+        await message.channel.send("❌ Please provide a valid number!")
         return
 
-    if length < 1:
-        await message.channel.send("❌ Length must be at least **1**!")
-        return
-
-    if length > 2000:
-        await message.channel.send("❌ Maximum length is **2,000** characters (Discord limit)!")
+    if length < 1 or length > 2000:
+        await message.channel.send("❌ Length must be between 1 and 2,000!")
         return
 
     chars = string.ascii_letters + string.digits + string.punctuation
     junk = "".join(random.choices(chars, k=length))
-
     await message.channel.send(junk)
 
 async def handle_uwu(message, text):
     if not text:
-        await message.channel.send("✨ **`?uwu` Command Guide** ✨\nConvewwts youww text into uwu language! :3\n\n**Usage:** `?uwu_(youww text hewe)`\n**Exampwe:** `?uwu_(Hello there!)` -> `Hewwo thewe! :3`")
+        await message.channel.send("✨ **Usage:** `?uwu_(your text here)`")
         return
 
     uwu_text = text.replace('r', 'w').replace('R', 'W').replace('l', 'w').replace('L', 'W')
@@ -213,32 +258,17 @@ async def handle_uwu(message, text):
 
 async def handle_falseban(message, target):
     if not target:
-        await message.channel.send("✨ **`?falseban` Command Guide** ✨\nPranks a user with a fake ban announcement!\n\n**Usage:** `?falseban_(username)`\n**Example:** `?falseban_(guy)`")
+        await message.channel.send("✨ **Usage:** `?falseban_(username)`")
         return
 
     ban_msg = await message.channel.send(f"🚫 **{target}** has been permanently banned from the server.\n**Reason:** Manual action by {message.author.mention}")
     await asyncio.sleep(3)
     await ban_msg.edit(content=f"🚫 **{target}** has been permanently banned from the server.\n**Reason:** Manual action by {message.author.mention}\n\n*jk you're fine lol.*")
 
-async def handle_meow(message, count_str, text):
-    if count_str:
-        try:
-            count = int(count_str)
-            if count < 1 or count > 50:
-                await message.channel.send("meow :3")
-                return
-            meows = " ".join(["meow"] * count)
-            await message.channel.send(f"{meows} :3")
-            return
-        except ValueError:
-            pass
-
-    await message.channel.send("meow :3")
-
-async def handle_rule(message, rule_num):
-    await message.channel.send(f"📜 **Rule #{rule_num}:** Be respectful and follow server guidelines!")
-
 async def handle_emoji(message, emoji_name):
+    if not emoji_name:
+        await message.channel.send("😃 **Usage:** `?emoji <emojiname>`")
+        return
     await message.channel.send(f"😃 Displaying emoji info for: `{emoji_name}`")
 
 @client.event
@@ -247,10 +277,14 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    print("I SAW A MESSAGE:", message.content)
-
     if message.author.bot or not message.guild:
         return
+
+    user_id = message.author.id
+    user_message_counts[user_id] = user_message_counts.get(user_id, 0) + 1
+
+    if message.attachments:
+        user_file_counts[user_id] = user_file_counts.get(user_id, 0) + len(message.attachments)
 
     content = message.content.strip()
 
@@ -271,6 +305,11 @@ async def on_message(message):
         await handle_test(message, lower.lstrip("?"))
         return
 
+    m = _RULE_RE.match(content)
+    if m:
+        await handle_rule(message, m.group(1))
+        return
+
     m = _MOD_RE.match(content)
     if m:
         try:
@@ -280,9 +319,14 @@ async def on_message(message):
         await handle_manual_mod(message, m.group(1).lower(), m.group(2))
         return
 
-    m = _RULE_RE.match(content)
+    m = _MESSAGES_RE.match(content)
     if m:
-        await handle_rule(message, m.group(1).strip())
+        await handle_messages(message, m.group(1))
+        return
+
+    m = _FILES_RE.match(content)
+    if m:
+        await handle_files(message, m.group(1))
         return
 
     m = _MEOW_RE.match(content)
@@ -292,7 +336,7 @@ async def on_message(message):
 
     m = _EMOJI_RE.match(content)
     if m:
-        await handle_emoji(message, m.group(1).strip())
+        await handle_emoji(message, m.group(1).strip() if m.group(1) else "")
         return
 
     m = _DICE_RE.match(content)
