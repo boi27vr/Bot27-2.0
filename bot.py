@@ -30,7 +30,7 @@ intents.members = True
 
 client = discord.Client(intents=intents)
 
-_MOD_RE = re.compile(r"^\?(warn|weekban|permban|unban)\s+(.+)$", re.IGNORECASE)
+_MOD_RE = re.compile(r"^\?(warn|weekban|permban|unban|tensecban|10secban)(?:\s+(.+))?$", re.IGNORECASE)
 _RULE_RE = re.compile(r"^\?rule\s+(\d+)$", re.IGNORECASE)
 _MEOW_RE = re.compile(r"^\?meow(\d*)?(?:\s+(.+))?$", re.IGNORECASE)
 _EMOJI_RE = re.compile(r"^\?emoji\s+(.+)$", re.IGNORECASE)
@@ -39,19 +39,94 @@ _NONSENSE_RE = re.compile(r"^\?nonsense(\d*)?$", re.IGNORECASE)
 _UWU_RE = re.compile(r"^\?uwu(?:\_\((.+)\))?$", re.IGNORECASE)
 _FALSEBAN_RE = re.compile(r"^\?falseban(?:\_\((.+)\))?$", re.IGNORECASE)
 
+async def auto_unban_10s(guild, user, channel):
+    await asyncio.sleep(10)
+    try:
+        await guild.unban(user, reason="10-second temp ban expired.")
+        await channel.send(f"✅ **{user.name}**'s 10-second ban has expired and they have been unbanned!")
+    except discord.Forbidden:
+        await channel.send(f"⚠️ Tried to auto-unban **{user.name}**, but I lack permissions.")
+    except discord.HTTPException:
+        pass
+
 async def handle_manual_mod(message, action, target_and_reason):
+    if not message.author.guild_permissions.ban_members and action in ("weekban", "permban", "unban", "tensecban", "10secban"):
+        await message.channel.send("❌ You need **Ban Members** permissions to use this command.")
+        return
+
+    if not target_and_reason:
+        await message.channel.send(f"⚠️ **Usage:** `?{action} @User [reason]`")
+        return
+
     parts = target_and_reason.split(" ", 1)
-    target = parts[0]
+    raw_target = parts[0]
     reason = parts[1] if len(parts) > 1 else "No reason provided."
 
+    member = None
+    if message.mentions:
+        member = message.mentions[0]
+    elif raw_target.isdigit():
+        member = message.guild.get_member(int(raw_target))
+
     if action == "warn":
-        await message.channel.send(f"⚠️ **{target}** has been warned.\n**Reason:** {reason}")
-    elif action == "weekban":
-        await message.channel.send(f"⏳ **{target}** has been banned for 7 days.\n**Reason:** {reason}")
+        target_name = member.mention if member else raw_target
+        await message.channel.send(f"⚠️ **{target_name}** has been warned.\n**Reason:** {reason}")
+
+    elif action in ("tensecban", "10secban"):
+        if not member:
+            await message.channel.send(f"❌ Could not find member `{raw_target}` in this server.")
+            return
+
+        user = member
+        try:
+            await member.ban(reason=f"[10-Sec Ban] {reason}", delete_message_days=0)
+            await message.channel.send(f"⏱️ **{user.name}** has been banned for **10 seconds**!\n**Reason:** {reason}")
+            asyncio.create_task(auto_unban_10s(message.guild, user, message.channel))
+        except discord.Forbidden:
+            await message.channel.send("❌ **Failed:** My role is lower than this user, or I lack **Ban Members** permission.")
+        except discord.HTTPException:
+            await message.channel.send("❌ An error occurred while attempting to ban this user.")
+
     elif action == "permban":
-        await message.channel.send(f"🚫 **{target}** has been permanently banned.\n**Reason:** {reason}")
+        if not member:
+            await message.channel.send(f"❌ Could not find member `{raw_target}` in this server.")
+            return
+
+        try:
+            await member.ban(reason=reason, delete_message_days=0)
+            await message.channel.send(f"🚫 **{member.name}** has been permanently banned.\n**Reason:** {reason}")
+        except discord.Forbidden:
+            await message.channel.send("❌ **Failed:** My role is lower than this user, or I lack **Ban Members** permission.")
+
+    elif action == "weekban":
+        if not member:
+            await message.channel.send(f"❌ Could not find member `{raw_target}` in this server.")
+            return
+
+        try:
+            await member.ban(reason=f"[7-Day Ban] {reason}", delete_message_days=7)
+            await message.channel.send(f"⏳ **{member.name}** has been banned for 7 days.\n**Reason:** {reason}")
+        except discord.Forbidden:
+            await message.channel.send("❌ **Failed:** I lack permissions to ban this user.")
+
     elif action == "unban":
-        await message.channel.send(f"✅ **{target}** has been unbanned.")
+        banned_users = [entry async for entry in message.guild.bans()]
+        user_to_unban = None
+
+        for entry in banned_users:
+            if raw_target in (str(entry.user.id), entry.user.name, f"{entry.user.name}#{entry.user.discriminator}"):
+                user_to_unban = entry.user
+                break
+
+        if not user_to_unban:
+            await message.channel.send(f"❌ Could not find `{raw_target}` in the server ban list.")
+            return
+
+        try:
+            await message.guild.unban(user_to_unban, reason=reason)
+            await message.channel.send(f"✅ **{user_to_unban.name}** has been unbanned.")
+        except discord.Forbidden:
+            await message.channel.send("❌ I lack permissions to unban users.")
 
 async def handle_test(message, test_type):
     await message.channel.send(f"🧪 **Test Executed:** `{test_type}` command test successful for {message.author.mention}!")
@@ -61,7 +136,11 @@ async def handle_banlist(message):
         await message.channel.send("❌ You need the **Ban Members** permission to view the ban list.")
         return
 
-    banned_users = [entry async for entry in message.guild.bans()]
+    try:
+        banned_users = [entry async for entry in message.guild.bans()]
+    except discord.Forbidden:
+        await message.channel.send("❌ I don't have permission to view the server ban list.")
+        return
 
     if not banned_users:
         await message.channel.send("🎉 There are currently **no banned users** in this server!")
@@ -184,10 +263,10 @@ async def on_message(message):
         await handle_banlist(message)
         return
 
-    if lower in ("?testwarn", "?testweekban", "?testpermban", "?testunban"):
+    if lower in ("?testwarn", "?testweekban", "?testpermban", "?testunban", "?testtensecban"):
         try:
             await message.delete()
-        except discord.HTTPException:
+        except (discord.HTTPException, discord.Forbidden):
             pass
         await handle_test(message, lower.lstrip("?"))
         return
@@ -196,7 +275,7 @@ async def on_message(message):
     if m:
         try:
             await message.delete()
-        except discord.HTTPException:
+        except (discord.HTTPException, discord.Forbidden):
             pass
         await handle_manual_mod(message, m.group(1).lower(), m.group(2))
         return
@@ -235,7 +314,7 @@ async def on_message(message):
     if m:
         try:
             await message.delete()
-        except discord.HTTPException:
+        except (discord.HTTPException, discord.Forbidden):
             pass
         await handle_falseban(message, m.group(1))
         return
