@@ -141,6 +141,8 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
+    print("I SAW A MESSAGE:", message.content)
+
     if message.author.bot or not message.guild:
         return
 
