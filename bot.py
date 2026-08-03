@@ -2,6 +2,7 @@ import os
 import re
 import random
 import string
+import asyncio
 import discord
 from flask import Flask
 from threading import Thread
@@ -36,6 +37,7 @@ _EMOJI_RE = re.compile(r"^\?emoji\s+(.+)$", re.IGNORECASE)
 _DICE_RE = re.compile(r"^\?dice(\d*)?$", re.IGNORECASE)
 _NONSENSE_RE = re.compile(r"^\?nonsense(\d*)?$", re.IGNORECASE)
 _UWU_RE = re.compile(r"^\?uwu(?:\_\((.+)\))?$", re.IGNORECASE)
+_FALSEBAN_RE = re.compile(r"^\?falseban(?:\_\((.+)\))?$", re.IGNORECASE)
 
 async def handle_banlist(message):
     if not message.author.guild_permissions.ban_members:
@@ -113,6 +115,15 @@ async def handle_uwu(message, text):
     uwu_text = text.replace('r', 'w').replace('R', 'W').replace('l', 'w').replace('L', 'W')
     await message.channel.send(f"{uwu_text} :3")
 
+async def handle_falseban(message, target):
+    if not target:
+        await message.channel.send("✨ **`?falseban` Command Guide** ✨\nPranks a user with a fake ban announcement!\n\n**Usage:** `?falseban_(username)`\n**Example:** `?falseban_(guy)`")
+        return
+
+    ban_msg = await message.channel.send(f"🚫 **{target}** has been permanently banned from the server.\n**Reason:** Manual action by {message.author.mention}")
+    await asyncio.sleep(3)
+    await ban_msg.edit(content=f"🚫 **{target}** has been permanently banned from the server.\n**Reason:** Manual action by {message.author.mention}\n\n*jk you're fine lol.*")
+
 @client.event
 async def on_ready():
     print(f"Logged in as {client.user} (ID: {client.user.id})")
@@ -138,11 +149,19 @@ async def on_message(message):
         return
 
     if lower in ("?testwarn", "?testweekban", "?testpermban", "?testunban"):
+        try:
+            await message.delete()
+        except discord.HTTPException:
+            pass
         await handle_test(message, lower.lstrip("?"))
         return
 
     m = _MOD_RE.match(content)
     if m:
+        try:
+            await message.delete()
+        except discord.HTTPException:
+            pass
         await handle_manual_mod(message, m.group(1).lower(), m.group(2))
         return
 
@@ -174,6 +193,15 @@ async def on_message(message):
     m = _UWU_RE.match(content)
     if m:
         await handle_uwu(message, m.group(1))
+        return
+
+    m = _FALSEBAN_RE.match(content)
+    if m:
+        try:
+            await message.delete()
+        except discord.HTTPException:
+            pass
+        await handle_falseban(message, m.group(1))
         return
 
 def main():
