@@ -185,15 +185,19 @@ async def handle_commands_list(message):
         "• `?messages [@User]` - Checks total messages sent since bot went online.\n"
         "• `?files [@User]` - Checks total files/attachments uploaded since bot went online.\n\n"
         "📜 **SERVER INFO COMMANDS**\n"
-        "• `?rule <1-10>` or `?rule<1-10>` - Displays specific server rule.\n\n"
+        "• `?rule <1-10>` or `?rule<1-10>` - Displays specific server rule.\n"
+        "• `?botinfo` - Displays information about the bot.\n\n"
         "🎉 **FUN & UTILITY COMMANDS**\n"
         "• `?meow [count]` - Sends meows (max 50).\n"
         "• `?dice<limit>` - Rolls a dice up to specified limit.\n"
-        "• `?nonsense<length>` - Generates random string of text.\n"
+        "• `?nonsense<length>` - Generates random string of text (max 125).\n"
         "• `?uwu_(text)` - Translates text to uwu format.\n"
         "• `?emoji<count>` - Sends random emojis up to specified count (max 50)."
     )
     await message.channel.send(commands_text)
+
+async def handle_botinfo(message):
+    await message.channel.send("Hello! We use a simple bot to moderate, assist, and add fun to our server. Don't worry, we aren't spying, it simply checks if any slurs are used. Admins can also use it to manually moderate users. For more info, head to https://discord.com/channels/1460078014724440151/1533263896595398796")
 
 async def handle_rule(message, rule_num):
     if not rule_num:
@@ -309,7 +313,7 @@ async def handle_dice(message, limit_str):
 
 async def handle_nonsense(message, length_str):
     if not length_str:
-        await message.channel.send("✨ **Usage:** `?nonsense<length>` (e.g. `?nonsense12`)")
+        await message.channel.send("✨ **Usage:** `?nonsense<length>` (e.g. `?nonsense12` - Max: 125)")
         return
 
     try:
@@ -318,8 +322,8 @@ async def handle_nonsense(message, length_str):
         await message.channel.send("❌ Please provide a valid number!")
         return
 
-    if length < 1 or length > 2000:
-        await message.channel.send("❌ Length must be between 1 and 2,000!")
+    if length < 1 or length > 125:
+        await message.channel.send("❌ Length must be between 1 and 125!")
         return
 
     chars = string.ascii_letters + string.digits + string.punctuation
@@ -367,6 +371,10 @@ async def on_message(message):
 
     if lower in ("?commands", "?help"):
         await handle_commands_list(message)
+        return
+
+    if lower == "?botinfo":
+        await handle_botinfo(message)
         return
 
     if lower in ("?banlist", "?bans"):
