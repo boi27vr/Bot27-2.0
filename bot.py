@@ -145,7 +145,7 @@ async def handle_manual_mod(message, action, target_and_reason):
             await member.ban(reason=f"[7-Day Ban] {reason}", delete_message_days=7)
             await message.channel.send(f"⏳ **{member.name}** has been banned for 7 days.\n**Reason:** {reason}")
         except discord.Forbidden:
-            await message.channel.send("❌ **Failed:** I lack permissions to ban this user.")
+            await message.channel.send("❌ I lack permissions to ban this user.")
 
     elif action == "unban":
         banned_users = [entry async for entry in message.guild.bans()]
@@ -186,7 +186,8 @@ async def handle_commands_list(message):
         "• `?files [@User]` - Checks total files/attachments uploaded since bot went online.\n\n"
         "📜 **SERVER INFO COMMANDS**\n"
         "• `?rule <1-10>` or `?rule<1-10>` - Displays specific server rule.\n"
-        "• `?botinfo` - Displays information about the bot.\n\n"
+        "• `?botinfo` - Displays information about the bot.\n"
+        "• `?serverinfo` - Displays details and statistics about this server.\n\n"
         "🎉 **FUN & UTILITY COMMANDS**\n"
         "• `?meow [count]` - Sends meows (max 50).\n"
         "• `?dice<limit>` - Rolls a dice up to specified limit.\n"
@@ -198,6 +199,29 @@ async def handle_commands_list(message):
 
 async def handle_botinfo(message):
     await message.channel.send("Hello! We use a simple bot to moderate, assist, and add fun to our server. Don't worry, we aren't spying, it simply checks if any slurs are used. Admins can also use it to manually moderate users. For more info, head to https://discord.com/channels/1460078014724440151/1533263896595398796")
+
+async def handle_serverinfo(message):
+    guild = message.guild
+    text_channels = len(guild.text_channels)
+    voice_channels = len(guild.voice_channels)
+    created_at = guild.created_at.strftime("%B %d, %Y")
+
+    embed = discord.Embed(
+        title=f"🏰 {guild.name} Server Information",
+        color=discord.Color.blue()
+    )
+    if guild.icon:
+        embed.set_thumbnail(url=guild.icon.url)
+
+    embed.add_field(name="👑 Owner", value=f"{guild.owner.mention}" if guild.owner else "Unknown", inline=True)
+    embed.add_field(name="👥 Members", value=f"**{guild.member_count:,}**", inline=True)
+    embed.add_field(name="📅 Created On", value=created_at, inline=True)
+    embed.add_field(name="💬 Text Channels", value=str(text_channels), inline=True)
+    embed.add_field(name="🔊 Voice Channels", value=str(voice_channels), inline=True)
+    embed.add_field(name="🎭 Roles", value=str(len(guild.roles)), inline=True)
+    embed.set_footer(text=f"Server ID: {guild.id}")
+
+    await message.channel.send(embed=embed)
 
 async def handle_rule(message, rule_num):
     if not rule_num:
@@ -375,6 +399,10 @@ async def on_message(message):
 
     if lower == "?botinfo":
         await handle_botinfo(message)
+        return
+
+    if lower == "?serverinfo":
+        await handle_serverinfo(message)
         return
 
     if lower in ("?banlist", "?bans"):
