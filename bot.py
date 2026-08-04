@@ -168,6 +168,35 @@ async def handle_manual_mod(message, action, target_and_reason):
             await message.channel.send("❌ I lack permissions to unban users.")
 
 async def handle_commands_list(message):
+    commands_text = (
+        "👑 **ADMIN & MODERATION COMMANDS**\n"
+        "• `?commands` - Displays this full command list.\n"
+        "• `?help` - Shows the help channel link.\n"
+        "• `?warn @User [reason]` - Warns a user (with a 10s delay).\n"
+        "• `?tensecban @User [reason]` or `?10secban` - Temporary 10-second ban.\n"
+        "• `?weekban @User [reason]` - 7-day server ban.\n"
+        "• `?permban @User [reason]` - Permanent server ban.\n"
+        "• `?unban <User ID / Name>` - Unbans a user.\n"
+        "• `?banlist` or `?bans` - Views all banned users.\n"
+        "• `?falseban_(name)` - Sends a fake ban prank message.\n"
+        "• `?clearcommands <number>` - Clears N pairs of command calls and bot replies.\n\n"
+        "📊 **STATS & TRACKING COMMANDS**\n"
+        "• `?messages [@User]` - Checks total messages sent since bot went online.\n"
+        "• `?files [@User]` - Checks total files/attachments uploaded since bot went online.\n\n"
+        "📜 **SERVER INFO COMMANDS**\n"
+        "• `?rule <1-10>` or `?rule<1-10>` - Displays specific server rule.\n"
+        "• `?botinfo` - Displays information about the bot.\n"
+        "• `?serverinfo` - Displays details and statistics about this server.\n\n"
+        "🎉 **FUN & UTILITY COMMANDS**\n"
+        "• `?meow [count]` - Sends meows (max 50).\n"
+        "• `?dice<limit>` - Rolls a dice up to specified limit.\n"
+        "• `?nonsense<length>` - Generates random string of text (max 125).\n"
+        "• `?uwu_(text)` - Translates text to uwu format.\n"
+        "• `?emoji<count>` - Sends random emojis up to specified count (max 50)."
+    )
+    await message.channel.send(commands_text)
+
+async def handle_help(message):
     await message.channel.send("For all commands, check https://discord.com/channels/1460078014724440151/1533263896595398796")
 
 async def handle_botinfo(message):
@@ -383,8 +412,12 @@ async def on_message(message):
 
     lower = content.lower()
 
-    if lower in ("?commands", "?help"):
+    if lower == "?commands":
         await handle_commands_list(message)
+        return
+
+    if lower == "?help":
+        await handle_help(message)
         return
 
     if lower == "?botinfo":
