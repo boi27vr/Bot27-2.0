@@ -32,6 +32,7 @@ client = discord.Client(intents=intents)
 
 user_message_counts = {}
 user_file_counts = {}
+user_slur_warnings = {}
 
 SERVER_RULES = {
     1: "Absolutely no hate speech, toxicity, or bullying! Any form of hate, including, but not limited to, homopbia, transphobia, xenophobia, sexism, or racism can result in a permanent ban!",
@@ -66,6 +67,19 @@ _FALSEBAN_RE = re.compile(r"^\?falseban(?:\_\((.+)\))?$", re.IGNORECASE)
 _MESSAGES_RE = re.compile(r"^\?messages(?:\s+(.+))?$", re.IGNORECASE)
 _FILES_RE = re.compile(r"^\?files(?:\s+(.+))?$", re.IGNORECASE)
 _CLEARCOMMANDS_RE = re.compile(r"^\?clearcommands\s*(\d+)$", re.IGNORECASE)
+
+SLUR_PATTERN = re.compile(r"(igga|igger|aggot)", re.IGNORECASE)
+
+def normalize_text(text):
+    substitutions = {
+        '@': 'a', '4': 'a',
+        '1': 'i', '!': 'i', '|': 'i',
+        '0': 'o',
+        '$': 's', '5': 's',
+        '3': 'e'
+    }
+    normalized = "".join(substitutions.get(c, c) for c in text.lower())
+    return normalized
 
 async def auto_unban_10s(guild, user, channel):
     await asyncio.sleep(10)
@@ -390,6 +404,32 @@ async def handle_clearcommands(message, pairs_str):
     confirm = await message.channel.send(f"🧹 Cleared {len(to_delete)} messages ({pairs} command/reply pairs)!")
     await confirm.delete(delay=3)
 
+async def execute_delayed_weekban(guild, user, channel):
+    await asyncio.sleep(10)
+    try:
+        await guild.ban(
+            user,
+            reason="[AutoMod] 2nd Slur Violation (7-Day Ban)",
+            delete_message_days=7
+        )
+    except discord.Forbidden:
+        await channel.send(f"❌ Tried to 7-day ban **{user.name}** for slur usage, but I lack permissions.")
+    except discord.HTTPException:
+        pass
+
+async def execute_delayed_permban(guild, user, channel):
+    await asyncio.sleep(30)
+    try:
+        await guild.ban(
+            user,
+            reason="[AutoMod] 3rd Slur Violation (Permanent Ban)",
+            delete_message_days=0
+        )
+    except discord.Forbidden:
+        await channel.send(f"❌ Tried to permanently ban **{user.name}** for slur usage, but I lack permissions.")
+    except discord.HTTPException:
+        pass
+
 @client.event
 async def on_ready():
     print(f"Logged in as {client.user} (ID: {client.user.id})")
@@ -397,6 +437,34 @@ async def on_ready():
 @client.event
 async def on_message(message):
     if message.author.bot or not message.guild:
+        return
+
+    normalized_content = normalize_text(message.content)
+
+    if SLUR_PATTERN.search(normalized_content):
+        try:
+            await message.delete()
+        except (discord.HTTPException, discord.Forbidden):
+            pass
+
+        user_id = message.author.id
+        current_warnings = user_slur_warnings.get(user_id, 0) + 1
+        user_slur_warnings[user_id] = current_warnings
+
+        if current_warnings == 1:
+            await message.channel.send(
+                f"⚠️ **{message.author.name}** HAS BEEN WARNED FOR SLUR USAGE. IF THEY USE A SLUR AGAIN, THEY WILL BE BANNED FOR ONE WEEK."
+            )
+        elif current_warnings == 2:
+            await message.channel.send(
+                f"⚠️ **{message.author.name}** HAS BEEN BANNED FOR A WEEK FOR SLUR USAGE. IF THEY USE A SLUR AGAIN, THEY WILL BE BANNED PERMANENTLY."
+            )
+            asyncio.create_task(execute_delayed_weekban(message.guild, message.author, message.channel))
+        else:
+            await message.channel.send(
+                f"⚠️ **{message.author.name}** HAS BEEN BANNED PERMANENTLY FOR SLUR USAGE. IF YOU NEED TO APPEAL, DM @boi27vr"
+            )
+            asyncio.create_task(execute_delayed_permban(message.guild, message.author, message.channel))
         return
 
     user_id = message.author.id
