@@ -46,10 +46,19 @@ SERVER_RULES = {
     10: "Have common sense. If it feels like it might cause problems, just don't do it!"
 }
 
+EMOJI_POOL = [
+    "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "🥹", "☺️", "😊", "😇", "🙂", "🙃", "😉",
+    "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓",
+    "😎", "🥸", "🤩", "🥳", "😏", "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖", "😫",
+    "😩", "🥺", "😢", "😭", "😮‍💨", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨",
+    "😰", "😥", "😓", "🫣", "🤗", "🫡", "🤔", "🫣", "🤭", "🥱", "👻", "💀", "☠️", "👽", "🤖",
+    "💩", "🎉", "🔥", "✨", "🌟", "💫", "💥", "❤️", "🧡", "💛", "💚", "💙", "💜", "🤎", "🖤"
+]
+
 _MOD_RE = re.compile(r"^\?(warn|weekban|permban|unban|tensecban|10secban)(?:\s+(.+))?$", re.IGNORECASE)
 _RULE_RE = re.compile(r"^\?rule\s*(\d*)?$", re.IGNORECASE)
 _MEOW_RE = re.compile(r"^\?meow\s*(\d*)?(?:\s+(.+))?$", re.IGNORECASE)
-_EMOJI_RE = re.compile(r"^\?emoji\s*(.+)?$", re.IGNORECASE)
+_EMOJI_RE = re.compile(r"^\?emoji\s*(\d*)?$", re.IGNORECASE)
 _DICE_RE = re.compile(r"^\?dice\s*(\d*)?$", re.IGNORECASE)
 _NONSENSE_RE = re.compile(r"^\?nonsense\s*(\d*)?$", re.IGNORECASE)
 _UWU_RE = re.compile(r"^\?uwu(?:\_\((.+)\))?$", re.IGNORECASE)
@@ -181,8 +190,8 @@ async def handle_commands_list(message):
         "• `?meow [count]` - Sends meows (max 50).\n"
         "• `?dice<limit>` - Rolls a dice up to specified limit.\n"
         "• `?nonsense<length>` - Generates random string of text.\n"
-        "• `?uwu_(text)` - Translates text to owo format.\n"
-        "• `?emoji <emojiname>` - Displays emoji info."
+        "• `?uwu_(text)` - Translates text to uwu format.\n"
+        "• `?emoji<count>` - Sends random emojis up to specified count (max 50)."
     )
     await message.channel.send(commands_text)
 
@@ -215,6 +224,25 @@ async def handle_meow(message, count_str, text):
             pass
 
     await message.channel.send("meow :3")
+
+async def handle_emoji(message, count_str):
+    if not count_str:
+        await message.channel.send("😃 **`?emoji` Command Guide** 😃\nSends a set of random emojis!\n\n**Usage:** `?emoji<count>`\n**Example:** `?emoji13` or `?emoji 5` *(Max: 50)*")
+        return
+
+    try:
+        count = int(count_str)
+        if count < 1:
+            await message.channel.send("❌ Please choose a number of at least **1**!")
+            return
+        if count > 50:
+            await message.channel.send("❌ Maximum limit is **50** emojis!")
+            return
+
+        chosen_emojis = "".join(random.choices(EMOJI_POOL, k=count))
+        await message.channel.send(chosen_emojis)
+    except ValueError:
+        await message.channel.send("❌ Please enter a valid number! Example: `?emoji13`")
 
 async def handle_messages(message, target_str):
     target_user = message.author
@@ -315,12 +343,6 @@ async def handle_falseban(message, target):
     await asyncio.sleep(3)
     await ban_msg.edit(content=f"🚫 **{target}** has been permanently banned from the server.\n**Reason:** Manual action by {message.author.mention}\n\n*jk you're fine lol.*")
 
-async def handle_emoji(message, emoji_name):
-    if not emoji_name:
-        await message.channel.send("😃 **Usage:** `?emoji <emojiname>`")
-        return
-    await message.channel.send(f"😃 Displaying emoji info for: `{emoji_name}`")
-
 @client.event
 async def on_ready():
     print(f"Logged in as {client.user} (ID: {client.user.id})")
@@ -390,7 +412,7 @@ async def on_message(message):
 
     m = _EMOJI_RE.match(content)
     if m:
-        await handle_emoji(message, m.group(1).strip() if m.group(1) else "")
+        await handle_emoji(message, m.group(1))
         return
 
     m = _DICE_RE.match(content)
