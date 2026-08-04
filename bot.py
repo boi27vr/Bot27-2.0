@@ -65,6 +65,7 @@ _UWU_RE = re.compile(r"^\?uwu(?:\_\((.+)\))?$", re.IGNORECASE)
 _FALSEBAN_RE = re.compile(r"^\?falseban(?:\_\((.+)\))?$", re.IGNORECASE)
 _MESSAGES_RE = re.compile(r"^\?messages(?:\s+(.+))?$", re.IGNORECASE)
 _FILES_RE = re.compile(r"^\?files(?:\s+(.+))?$", re.IGNORECASE)
+_CLEARCOMMANDS_RE = re.compile(r"^\?clearcommands\s*(\d+)$", re.IGNORECASE)
 
 async def auto_unban_10s(guild, user, channel):
     await asyncio.sleep(10)
@@ -167,35 +168,7 @@ async def handle_manual_mod(message, action, target_and_reason):
             await message.channel.send("❌ I lack permissions to unban users.")
 
 async def handle_commands_list(message):
-    if not (message.author.guild_permissions.administrator or message.author.guild_permissions.ban_members):
-        await message.channel.send("🔒 **Access Denied:** You must be an Administrator or Moderator to view the command list.")
-        return
-
-    commands_text = (
-        "👑 **ADMIN & MODERATION COMMANDS**\n"
-        "• `?commands` or `?help` - Displays this admin command list.\n"
-        "• `?warn @User [reason]` - Warns a user (with a 10s delay).\n"
-        "• `?tensecban @User [reason]` - Temporary 10-second ban.\n"
-        "• `?weekban @User [reason]` - 7-day server ban.\n"
-        "• `?permban @User [reason]` - Permanent server ban.\n"
-        "• `?unban <User ID / Name>` - Unbans a user.\n"
-        "• `?banlist` or `?bans` - Views all banned users.\n"
-        "• `?falseban_(name)` - Sends a fake ban prank message.\n\n"
-        "📊 **STATS & TRACKING COMMANDS**\n"
-        "• `?messages [@User]` - Checks total messages sent since bot went online.\n"
-        "• `?files [@User]` - Checks total files/attachments uploaded since bot went online.\n\n"
-        "📜 **SERVER INFO COMMANDS**\n"
-        "• `?rule <1-10>` or `?rule<1-10>` - Displays specific server rule.\n"
-        "• `?botinfo` - Displays information about the bot.\n"
-        "• `?serverinfo` - Displays details and statistics about this server.\n\n"
-        "🎉 **FUN & UTILITY COMMANDS**\n"
-        "• `?meow [count]` - Sends meows (max 50).\n"
-        "• `?dice<limit>` - Rolls a dice up to specified limit.\n"
-        "• `?nonsense<length>` - Generates random string of text (max 125).\n"
-        "• `?uwu_(text)` - Translates text to uwu format.\n"
-        "• `?emoji<count>` - Sends random emojis up to specified count (max 50)."
-    )
-    await message.channel.send(commands_text)
+    await message.channel.send("For all commands, check https://discord.com/channels/1460078014724440151/1533263896595398796")
 
 async def handle_botinfo(message):
     await message.channel.send("Hello! We use a simple bot to moderate, assist, and add fun to our server. Don't worry, we aren't spying, it simply checks if any slurs are used. Admins can also use it to manually moderate users. For more info, head to https://discord.com/channels/1460078014724440151/1533263896595398796")
@@ -371,6 +344,23 @@ async def handle_falseban(message, target):
     await asyncio.sleep(3)
     await ban_msg.edit(content=f"🚫 **{target}** has been permanently banned from the server.\n**Reason:** Manual action by {message.author.mention}\n\n*jk you're fine lol.*")
 
+async def handle_clearcommands(message, pairs_str):
+    if not message.author.guild_permissions.manage_messages:
+        await message.channel.send("❌ You need **Manage Messages** permissions to use this command.")
+        return
+
+    pairs = int(pairs_str)
+    target_count = pairs * 2
+
+    def is_bot_or_command(msg):
+        return msg.content.startswith(PREFIX) or msg.author == client.user
+
+    deleted = await message.channel.purge(limit=target_count * 5, check=is_bot_or_command)
+    to_delete = deleted[:target_count]
+
+    confirm = await message.channel.send(f"🧹 Cleared {len(to_delete)} messages ({pairs} command/reply pairs)!")
+    await confirm.delete(delay=3)
+
 @client.event
 async def on_ready():
     print(f"Logged in as {client.user} (ID: {client.user.id})")
@@ -474,6 +464,14 @@ async def on_message(message):
             pass
         await handle_falseban(message, m.group(1))
         return
+
+    m = _CLEARCOMMANDS_RE.match(content)
+    if m:
+        await handle_clearcommands(message, m.group(1))
+        return
+
+    cmd = content.split()[0]
+    await message.channel.send(f"{cmd} doesn't exist. For all commands, check https://discord.com/channels/1460078014724440151/1533263896595398796")
 
 def main():
     if not TOKEN:
