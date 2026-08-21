@@ -26,19 +26,23 @@ def keep_alive():
     t.start()
 
 # ---------------------------------------------------------
-# SERVER RULES DICTIONARY
+# QUEER DICTIONARY
 # ---------------------------------------------------------
-SERVER_RULES = {
-    1: "Be respectful to all members. No harassment, hate speech, or personal attacks.",
-    2: "No spamming messages, emojis, or attachments in public channels.",
-    3: "Keep discussions relevant to the respective channel topics.",
-    4: "No NSFW or sexually explicit content is allowed.",
-    5: "Follow Discord's Terms of Service and Community Guidelines at all times.",
-    6: "Respect staff decisions and do not argue with moderators in public channels.",
-    7: "No self-promotion or advertising without prior staff approval.",
-    8: "Do not post personal or private information of others (no doxxing).",
-    9: "Use appropriate content warnings when discussing potentially sensitive topics.",
-    10: "Have fun and contribute positively to the community!"
+QUEER_DICT = {
+    "queer": "An umbrella term used by people who are not heterosexual or cisgender.",
+    "lesbian": "A woman or non-binary person who is attracted to women/non-binary people.",
+    "gay": "An umbrella term or specifically a man/non-binary person attracted to men.",
+    "bisexual": "Attracted to two or more genders.",
+    "transgender": "Having a gender identity that differs from the sex assigned at birth.",
+    "transmasc": "A trans person who identifies more with masculinity or male identity.",
+    "transfem": "A trans person who identifies more with femininity or female identity.",
+    "pansexual": "Attracted to people regardless of their gender identity.",
+    "asexual": "Experiencing little to no sexual attraction to others.",
+    "aromantic": "Experiencing little to no romantic attraction to others.",
+    "nonbinary": "Having a gender identity that doesn't fit strictly into male or female.",
+    "genderfluid": "Having a gender identity that changes over time.",
+    "agender": "Identifying as having no gender or being gender neutral.",
+    "demisexual": "Experiencing sexual attraction only after forming a strong emotional bond."
 }
 
 # ---------------------------------------------------------
@@ -49,69 +53,113 @@ intents.message_content = True
 intents.members = True
 
 bot = commands.Bot(command_prefix="?", intents=intents)
-bot.remove_command("help")  # Removes default help command to allow custom ?help
+bot.remove_command("help")  # Allows custom ?help command
 
-# Track warnings and stats (resets when bot restarts)
+# User tracking memory
 user_warnings = {}
 message_counts = {}
 file_counts = {}
+historical_bans = set()  # Permanent record of banned users (survives unbans)
 
-# Automod Regex Pattern
-PROFANITY_PATTERN = re.compile(r"\b(slur_pattern_1|slur_pattern_2)\b", re.IGNORECASE)
+# Regex pattern catching base slurs and common leetspeak/symbol bypasses (1/!/| for i, 3 for e, @/4 for a, 0 for o)
+PROFANITY_PATTERN = re.compile(
+    r"[n|n][i1!\|l]gg[a@4]|[n|n][i1!\|l]gg[e3]r|[f|f][a@4]gg[o0]t", 
+    re.IGNORECASE
+)
 
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user.name} ({bot.user.id})")
 
 # ---------------------------------------------------------
-# AUTOMOD & TRACKER LISTENER
+# AUTOMOD & LISTENER
 # ---------------------------------------------------------
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
 
-    # Track message and file stats
+    # Track message and file counts
     user_id = message.author.id
     message_counts[user_id] = message_counts.get(user_id, 0) + 1
     if message.attachments:
         file_counts[user_id] = file_counts.get(user_id, 0) + len(message.attachments)
 
-    # Dynamic ?falseban_<name> check
-    if message.content.lower().startswith("?falseban_"):
-        target_name = message.content[10:].strip()
-        if target_name:
-            await message.channel.send(
-                f"🚨 **SYSTEM NOTICE:** User **{target_name}** has been permanently banned from the server. *(Reason: Unspecified Violation)*"
-            )
-            await asyncio.sleep(2)
-            await message.channel.send("Just kidding! It was a prank. 😜")
+    # Dynamic ?falseban @User [reason] check
+    if message.content.lower().startswith("?falseban"):
+        try:
+            await message.delete()
+        except discord.NotFound:
+            pass
+        
+        args = message.content.split(maxsplit=2)
+        target = args[1] if len(args) > 1 else "@User"
+        reason = args[2] if len(args) > 2 else "Unspecified Violation"
+        
+        notice = await message.channel.send(
+            f"🚨 **SYSTEM NOTICE:** {target} will be permanently banned in 10 secs. "
+            f"For support and/or ban appealing, dm @boi27vr. Reason: {reason}"
+        )
+        await asyncio.sleep(2)
+        await notice.edit(content=f"🚨 **SYSTEM NOTICE:** {target} will be permanently banned in 10 secs...\n\njk lol you're fine 😜")
         return
 
-    # Dynamic ?uwu_<text> check
+    # Dynamic ?uwu_(text) check
     if message.content.lower().startswith("?uwu_"):
+        try:
+            await message.delete()
+        except discord.NotFound:
+            pass
+        
         raw_text = message.content[5:]
-        uwu_text = raw_text.replace("r", "w").replace("l", "w").replace("R", "W").replace("L", "W") + " uwu"
+        uwu_text = raw_text.replace("r", "w").replace("l", "w").replace("R", "W").replace("L", "W") + " :3"
         await message.channel.send(uwu_text)
         return
 
-    # Automod Slur Check
+    # Dynamic ?queer_<term> lookup
+    if message.content.lower().startswith("?queer_"):
+        term = message.content[7:].strip().lower()
+        if term in QUEER_DICT:
+            await message.channel.send(f"🌈 **{term.capitalize()}**: {QUEER_DICT[term]}")
+        else:
+            await message.channel.send(f"Couldn't find `{term}` in the dictionary! Type `?queer` for a random term.")
+        return
+
+    # Automod Slur Escalation Check
     normalized_content = message.content.lower()
     if PROFANITY_PATTERN.search(normalized_content):
-        await message.delete()
-        user_warnings[user_id] = user_warnings.get(user_id, 0) + 1
-        warnings_count = user_warnings[user_id]
+        try:
+            await message.delete()
+        except discord.NotFound:
+            pass
 
-        if warnings_count == 1:
-            await message.channel.send(f"{message.author.mention}, that language is prohibited! **(Warning 1/3)**")
-        elif warnings_count == 2:
-            await message.channel.send(f"{message.author.mention}, final warning! Next offense results in a ban. **(Warning 2/3)**")
-        elif warnings_count >= 3:
+        user_warnings[user_id] = user_warnings.get(user_id, 0) + 1
+        strike = user_warnings[user_id]
+
+        if strike == 1:
+            await message.channel.send(f"⚠️ {message.author.mention} has been warned for prohibited language! **(Strike 1/4)**")
+        elif strike == 2:
             try:
-                await message.guild.ban(message.author, reason="Automod: 3 warnings reached.")
-                await message.channel.send(f"**{message.author}** was automatically banned for accumulating 3 warnings.")
+                await message.guild.kick(message.author, reason="Automod: Strike 2 (Prohibited language)")
+                await message.channel.send(f"👞 {message.author.mention} was kicked from the server. **(Strike 2/4)**")
             except discord.Forbidden:
-                await message.channel.send("Failed to ban user due to missing bot permissions!")
+                await message.channel.send("Failed to kick user due to missing permissions!")
+        elif strike == 3:
+            try:
+                historical_bans.add(f"{message.author.name} ({message.author.id})")
+                await message.guild.ban(message.author, reason="Automod: Strike 3 (7-day ban)")
+                await message.channel.send(f"⛔ **{message.author}** has been banned for 7 days. **(Strike 3/4)**")
+                await asyncio.sleep(604800)  # 7 days
+                await message.guild.unban(message.author, reason="7-day automod ban expired")
+            except discord.Forbidden:
+                await message.channel.send("Failed to ban user due to missing permissions!")
+        elif strike >= 4:
+            try:
+                historical_bans.add(f"{message.author.name} ({message.author.id})")
+                await message.guild.ban(message.author, reason="Automod: Strike 4 (Permanent ban)")
+                await message.channel.send(f"⛔ **{message.author}** has been permanently banned from the server. **(Strike 4/4)**")
+            except discord.Forbidden:
+                await message.channel.send("Failed to ban user due to missing permissions!")
         return
 
     await bot.process_commands(message)
@@ -125,26 +173,28 @@ async def show_commands(ctx):
         "👑 **ADMIN & MODERATION COMMANDS**\n"
         "• `?commands` - Displays this full command list.\n"
         "• `?help` - Shows link for bot info and command details.\n"
-        "• `?warn @User [reason]` - Warns a user (with a 10s delay).\n"
+        "• `?warn @User [reason]` - Warns a user immediately.\n"
+        "• `?unwarn @User` - Clears all warnings from a user.\n"
         "• `?tensecban @User [reason]` or `?10secban` - Temporary 10-second ban.\n"
-        "• `?weekban @User [reason]` - 7-day server ban.\n"
-        "• `?permban @User [reason]` - Permanent server ban.\n"
+        "• `?weekban @User [reason]` - 7-day server ban after 10s.\n"
+        "• `?permban @User [reason]` - Permanent server ban after 10s.\n"
         "• `?unban <User ID / Name>` - Unbans a user.\n"
-        "• `?banlist` or `?bans` - Views all banned users.\n"
-        "• `?falseban_(name)` - Sends a fake ban prank message.\n"
-        "• `?clearcommands <number>` - Clears N pairs of command calls and bot replies.\n\n"
+        "• `?banlist` or `?bans` - Views all current and past banned users.\n"
+        "• `?falseban @User [reason]` - Sends a fake ban prank message.\n"
+        "• `?clearcommands<number>` - Clears N pairs of command calls and bot replies.\n\n"
         "📊 **STATS & TRACKING COMMANDS**\n"
         "• `?messages [@User]` - Checks total messages sent since bot went online.\n"
         "• `?files [@User]` - Checks total files/attachments uploaded since bot went online.\n\n"
         "📜 **SERVER INFO COMMANDS**\n"
-        "• `?rule <1-10>` or `?rule<1-10>` - Displays specific server rule.\n"
+        "• `?rule<1-10>` - Direct link to server rules channel.\n"
         "• `?botinfo` - Displays information about the bot and moderation policy.\n"
         "• `?serverinfo` - Displays details and statistics about this server.\n\n"
         "🎉 **FUN & UTILITY COMMANDS**\n"
         "• `?meow [count]` - Sends meows (max 50).\n"
         "• `?dice<limit>` - Rolls a dice up to specified limit.\n"
         "• `?nonsense<length>` - Generates random string of text (max 125).\n"
-        "• `?uwu_(text)` - Translates text to uwu format.\n"
+        "• `?uwu_(text)` - Translates text to uwu format with :3.\n"
+        "• `?queer` or `?queer_<term>` - Random or targeted LGBTQ+ dictionary lookup.\n"
         "• `?emoji<count>` - Sends random emojis up to specified count (max 50)."
     )
     await ctx.send(cmd_text)
@@ -155,66 +205,101 @@ async def help_cmd(ctx):
         "For bot info, the command list, and more, go to https://discord.com/channels/1460078014724440151/1533263896595398796"
     )
 
+@bot.command(name="queer")
+async def queer_cmd(ctx):
+    term, definition = random.choice(list(QUEER_DICT.items()))
+    await ctx.send(f"🌈 **{term.capitalize()}**: {definition}")
+
 @bot.command(name="warn")
 @commands.has_permissions(manage_messages=True)
 async def warn_user(ctx, member: discord.Member, *, reason: str = "No reason provided"):
-    await asyncio.sleep(10)
+    try:
+        await ctx.message.delete()
+    except discord.NotFound:
+        pass
+    
     user_id = member.id
     user_warnings[user_id] = user_warnings.get(user_id, 0) + 1
     await ctx.send(f"⚠️ {member.mention} has been warned! Reason: **{reason}** (Total warnings: {user_warnings[user_id]})")
 
+@bot.command(name="unwarn")
+@commands.has_permissions(manage_messages=True)
+async def unwarn_user(ctx, member: discord.Member):
+    user_warnings[member.id] = 0
+    await ctx.send(f"✅ Removed all warnings for {member.mention}.")
+
 @bot.command(name="tensecban", aliases=["10secban"])
 @commands.has_permissions(ban_members=True)
-async def ten_sec_ban(ctx, member: discord.Member, *, reason: str = "10-second temporary ban"):
+async def ten_sec_ban(ctx, member: discord.Member, *, reason: str = "Unspecified Violation"):
+    try:
+        await ctx.message.delete()
+    except discord.NotFound:
+        pass
+
+    historical_bans.add(f"{member.name} ({member.id})")
+    await ctx.send(
+        f"🚨 **SYSTEM NOTICE:** {member.mention} will be banned for 10 seconds in 10 secs. "
+        f"For support and/or ban appealing, dm @boi27vr Reason: {reason}"
+    )
+    await asyncio.sleep(10)
     await ctx.guild.ban(member, reason=reason)
-    await ctx.send(f"⛔ {member.mention} has been banned for 10 seconds.")
     await asyncio.sleep(10)
     await ctx.guild.unban(member, reason="10-second ban expired")
-    await ctx.send(f"✅ {member.mention} has been unbanned.")
 
 @bot.command(name="weekban")
 @commands.has_permissions(ban_members=True)
-async def week_ban(ctx, member: discord.Member, *, reason: str = "7-day server ban"):
+async def week_ban(ctx, member: discord.Member, *, reason: str = "Unspecified Violation"):
+    try:
+        await ctx.message.delete()
+    except discord.NotFound:
+        pass
+
+    historical_bans.add(f"{member.name} ({member.id})")
+    await ctx.send(
+        f"🚨 **SYSTEM NOTICE:** {member.mention} will be banned for 7 days in 10 secs. "
+        f"For support and/or ban appealing, dm @boi27vr Reason: {reason}"
+    )
+    await asyncio.sleep(10)
     await ctx.guild.ban(member, reason=reason)
-    await ctx.send(f"⛔ {member.mention} has been banned for 7 days.")
 
 @bot.command(name="permban")
 @commands.has_permissions(ban_members=True)
-async def perm_ban(ctx, member: discord.Member, *, reason: str = "Permanent server ban"):
+async def perm_ban(ctx, member: discord.Member, *, reason: str = "Unspecified Violation"):
+    try:
+        await ctx.message.delete()
+    except discord.NotFound:
+        pass
+
+    historical_bans.add(f"{member.name} ({member.id})")
+    await ctx.send(
+        f"🚨 **SYSTEM NOTICE:** {member.mention} will be permanently banned in 10 secs. "
+        f"For support and/or ban appealing, dm @boi27vr Reason: {reason}"
+    )
+    await asyncio.sleep(10)
     await ctx.guild.ban(member, reason=reason)
-    await ctx.send(f"⛔ {member.mention} has been permanently banned.")
 
 @bot.command(name="unban")
 @commands.has_permissions(ban_members=True)
 async def unban_user(ctx, *, user_info: str):
+    clean_info = user_info.replace("<@", "").replace(">", "").strip()
     banned_users = [entry async for entry in ctx.guild.bans()]
     for ban_entry in banned_users:
         user = ban_entry.user
-        if str(user.id) == user_info or user.name.lower() == user_info.lower():
+        if str(user.id) == clean_info or user.name.lower() == clean_info.lower():
             await ctx.guild.unban(user)
-            await ctx.send(f"✅ Unbanned **{user.name}#{user.discriminator}**.")
+            await ctx.send(f"✅ Unbanned **{user.name}**.")
             return
-    await ctx.send(f"User `{user_info}` was not found in the ban list.")
+    await ctx.send(f"User `{user_info}` was not found in active bans.")
 
 @bot.command(name="banlist", aliases=["bans"])
 @commands.has_permissions(ban_members=True)
 async def ban_list(ctx):
-    banned_users = [entry async for entry in ctx.guild.bans()]
-    if not banned_users:
-        await ctx.send("There are currently no banned users.")
+    if not historical_bans:
+        await ctx.send("No users have been recorded in the ban log yet.")
         return
     
-    ban_text = "**Banned Users:**\n" + "\n".join(f"• {b.user.name} ({b.user.id})" for b in banned_users[:20])
+    ban_text = "**Historical Ban Log (Including Unbanned Users):**\n" + "\n".join(f"• {user}" for user in historical_bans)
     await ctx.send(ban_text)
-
-@bot.command(name="clearcommands")
-@commands.has_permissions(manage_messages=True)
-async def clear_commands(ctx, amount: int = 10):
-    def is_bot_or_command(m):
-        return m.author == bot.user or m.content.startswith("?")
-
-    deleted = await ctx.channel.purge(limit=amount * 2, check=is_bot_or_command)
-    await ctx.send(f"Cleaned up command activity.", delete_after=3)
 
 # ---------------------------------------------------------
 # STATS & TRACKING COMMANDS
@@ -234,13 +319,6 @@ async def check_files(ctx, member: discord.Member = None):
 # ---------------------------------------------------------
 # SERVER INFO COMMANDS
 # ---------------------------------------------------------
-@bot.command(name="rule")
-async def show_rule(ctx, num: int):
-    if num in SERVER_RULES:
-        await ctx.send(f"📜 **Rule {num}:** {SERVER_RULES[num]}")
-    else:
-        await ctx.send("Invalid rule number! Please choose between 1 and 10.")
-
 @bot.command(name="botinfo")
 async def bot_info(ctx):
     await ctx.send(
@@ -267,21 +345,36 @@ async def meow_cmd(ctx, count: int = 1):
     count = max(1, min(count, 50))
     await ctx.send(" ".join(["meow"] * count))
 
-# Fallback handler for unspaced commands like ?dice20 or ?rule5
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
         cmd = ctx.message.content[1:]
-        
-        # Check for ?rule<1-10>
+
+        clear_match = re.match(r"^clearcommands(\d+)$", cmd, re.IGNORECASE)
+        if clear_match:
+            try:
+                await ctx.message.delete()
+            except discord.NotFound:
+                pass
+            
+            bundles = int(clear_match.group(1))
+            limit = bundles * 2
+            
+            def is_command_or_reply(m):
+                return m.author == bot.user or m.content.startswith("?")
+            
+            await ctx.channel.purge(limit=limit, check=is_command_or_reply)
+            return
+
         rule_match = re.match(r"^rule(\d+)$", cmd, re.IGNORECASE)
         if rule_match:
             r_num = int(rule_match.group(1))
-            if r_num in SERVER_RULES:
-                await ctx.send(f"📜 **Rule {r_num}:** {SERVER_RULES[r_num]}")
-                return
-            
-        # Check for ?dice<limit>
+            if 1 <= r_num <= 10:
+                await ctx.send(f"📜 Check out rule **#{r_num}** here: https://discord.com/channels/1460078014724440151/1460078118797840607")
+            else:
+                await ctx.send("Please specify a rule number between 1 and 10.")
+            return
+
         dice_match = re.match(r"^dice(\d+)$", cmd, re.IGNORECASE)
         if dice_match:
             limit = int(dice_match.group(1))
@@ -290,7 +383,6 @@ async def on_command_error(ctx, error):
                 await ctx.send(f"🎲 You rolled a **{result}** (out of {limit})!")
                 return
 
-        # Check for ?nonsense<length>
         nonsense_match = re.match(r"^nonsense(\d+)$", cmd, re.IGNORECASE)
         if nonsense_match:
             length = min(int(nonsense_match.group(1)), 125)
@@ -299,7 +391,6 @@ async def on_command_error(ctx, error):
             await ctx.send(f"🔤 `{rand_str}`")
             return
 
-        # Check for ?emoji<count>
         emoji_match = re.match(r"^emoji(\d+)$", cmd, re.IGNORECASE)
         if emoji_match:
             count = min(int(emoji_match.group(1)), 50)
