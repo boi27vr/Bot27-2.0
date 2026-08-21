@@ -1,5 +1,3 @@
-
-```python
 import os
 import re
 import random
@@ -259,5 +257,3 @@ if __name__ == "__main__":
         bot.run(token)
     else:
         print("ERROR: DISCORD_TOKEN environment variable not set!")
-
-```
