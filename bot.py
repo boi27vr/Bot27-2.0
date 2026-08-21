@@ -1,584 +1,175 @@
-import os
-import re
 import random
-import string
-import asyncio
 import discord
-from flask import Flask
-from threading import Thread
+from discord.ext import commands
 
-app = Flask('')
+# ---------------------------------------------------------
+# QUEER TERMS DICTIONARY (Simple, Natural Definitions)
+# ---------------------------------------------------------
+QUEER_TERMS = {
+    # Core & Popular Terms
+    "lesbian": "A woman who is attracted to other women.",
+    "gay": "A man who is attracted to other men.",
+    "bisexual": "Someone who is attracted to people of two or more genders.",
+    "transgender": "Someone whose gender identity is different from the sex they were assigned at birth.",
+    "queer": "An umbrella term for anyone who falls outside of heterosexual or cisgender norms.",
+    "questioning": "Someone who is taking time to explore and figure out their gender or sexuality.",
+    "intersex": "Someone born with physical traits or chromosomes that do not fit standard male or female categories.",
+    "asexual": "Someone who experiences little to no sexual attraction to others.",
+    "aromantic": "Someone who experiences little to no romantic attraction to others.",
+    "pansexual": "Someone who is attracted to people regardless of their gender.",
+    "nonbinary": "Someone whose gender identity sits outside the strict binary of being solely a man or a woman.",
+    "genderfluid": "Someone whose gender identity changes and shifts over time.",
+    "agender": "Someone who feels gender neutral or feels like they do not have a gender at all.",
+    "demisexual": "Someone who only feels sexual attraction after building a strong emotional bond with someone.",
+    "genderqueer": "An umbrella term for people whose gender identity does not align with traditional societal norms.",
+    "bigender": "Someone who experiences two distinct genders simultaneously or moves between them.",
+    "demiromantic": "Someone who only develops romantic feelings after forming a deep emotional connection.",
+    "aroace": "Short for aromantic asexual, meaning someone who feels little to no romantic or sexual attraction.",
+    "panromantic": "Someone who feels romantic attraction toward people regardless of their gender identity.",
+    "omnisexual": "Attracted to people of all genders, though gender still plays a role in how they feel that attraction.",
+    "omniromantic": "Romantically attracted to people of all genders, while still noticing and caring about gender identity.",
 
-@app.route('/')
-def home():
-    return "Bot is alive!"
+    # Popular & Moderate Niche
+    "cisgender": "Someone whose gender identity aligns with the sex they were assigned at birth.",
+    "androgyne": "Someone whose gender expression or identity blends both masculine and feminine traits, or sits between them.",
+    "neutrois": "Someone who identifies as having a neutral or non existent gender identity.",
+    "trigender": "Someone who experiences three distinct gender identities at the same time or moves between them.",
+    "pangender": "Someone whose gender identity encompasses many or all genders at once.",
+    "xenogender": "A nonbinary gender identity defined by concepts outside traditional human ideas of gender, like nature, space, or art.",
+    "polyamorous": "Someone who desires or engages in open romantic or sexual relationships with more than one partner at a time, with everyone's consent.",
+    "polysexual": "Someone who is attracted to many, but not necessarily all, genders.",
+    "polyromantic": "Someone who is romantically attracted to many, but not necessarily all, genders.",
+    "cupiosexual": "Someone on the asexual spectrum who does not feel sexual attraction, but still desires a sexual relationship.",
+    "cupioromantic": "Someone on the aromantic spectrum who does not feel romantic attraction, but still desires a romantic relationship.",
+    "apothisexual": "Someone on the asexual spectrum who feels sex repulsed and has no desire for sexual activity.",
+    "apothiromantic": "Someone on the aromantic spectrum who feels romance repulsed and has no desire for romantic relationships.",
+    "greysexual": "Someone who experiences sexual attraction very rarely, weakly, or only under specific circumstances.",
+    "greyromantic": "Someone who experiences romantic attraction very rarely, weakly, or only under specific circumstances.",
+    "abrosexual": "Someone whose sexual orientation fluctuates, changes, or fluidly shifts over time.",
+    "abroromantic": "Someone whose romantic orientation fluctuates, changes, or fluidly shifts over time.",
+    "sapphic": "An umbrella term for women or nonbinary individuals who feel romantic or sexual attraction to other women.",
+    "achillean": "An umbrella term for men or nonbinary individuals who feel romantic or sexual attraction to other men.",
+    "diamoric": "An umbrella term for romantic or sexual relationships involving at least one nonbinary person.",
+    "toric": "A nonbinary person who is attracted to men.",
+    "trixic": "A nonbinary person who is attracted to women.",
+    "transmasculine": "A transgender person who was assigned female at birth but identifies more with masculinity or a male gender path.",
+    "transmasc": "A transgender person who was assigned female at birth but identifies more with masculinity or a male gender path.",
+    "transfeminine": "A transgender person who was assigned male at birth but identifies more with femininity or a female gender path.",
+    "transfem": "A transgender person who was assigned male at birth but identifies more with femininity or a female gender path.",
+    "aliqusexual": "Someone who only feels sexual attraction under specific, unique circumstances or conditions.",
+    "aliquromantic": "Someone who only feels romantic attraction under specific, unique circumstances or conditions.",
 
-def run_web():
-    app.run(host='0.0.0.0', port=8080)
-
-def keep_alive():
-    t = Thread(target=run_web)
-    t.start()
-
-TOKEN = os.getenv("DISCORD_TOKEN")
-PREFIX = "?"
-
-intents = discord.Intents.default()
-intents.message_content = True
-intents.guilds = True
-intents.members = True
-
-client = discord.Client(intents=intents)
-
-user_message_counts = {}
-user_file_counts = {}
-user_slur_warnings = {}
-
-SERVER_RULES = {
-    1: "Absolutely no hate speech, toxicity, or bullying! Any form of hate, including, but not limited to, homopbia, transphobia, xenophobia, sexism, or racism can result in a permanent ban!",
-    2: "No offensive content. Dark humor is allowed but make sure nobody gets offended.",
-    3: "Be respectful. You don't have to be all sunshine and rainbows but no harassment, over the top swearing, or personal attacks.\n✅️ \"What the ####\"\n❌️ \"Shut the #### up\"",
-    4: "No inappropriate content! It doesn't have to be exactly family friendly, but don't act crazy. NSFW of any kind is not allowed. This includes, but is not limited to, nudity, extreme gore, excessive horror, etc.",
-    5: "Follow Discord's Terms of Service",
-    6: "Use channels properly. No spam. We have meme and spam channels for that. Also, please stay on topic. There is an off topic channel.",
-    7: "Listen to staff. In order to keep a friendly and safe environment, please listen to staff and do what they say.",
-    8: "No impersonating. This includes staff, helpers, or anyone else in charge.",
-    9: "Keep drama out. It is unbelievably annoying...",
-    10: "Have common sense. If it feels like it might cause problems, just don't do it!"
+    # Super Niche Terms
+    "aegosexual": "Someone on the asexual spectrum who enjoys sexual content or ideas, but feels no desire to participate themselves.",
+    "aegoromantic": "Someone on the aromantic spectrum who enjoys romantic stories or media, but feels no desire for a romantic relationship in real life.",
+    "quoiromantic": "Someone who finds the concept of romantic attraction confusing or hard to distinguish from friendship.",
+    "quoisexual": "Someone who feels sexual attraction is an unclear, confusing, or non applicable concept to them.",
+    "reciprosextual": "Someone who only feels sexual attraction toward someone after knowing that person is attracted to them first.",
+    "reciproromantic": "Someone who only feels romantic attraction toward someone after knowing that person has romantic feelings for them first.",
+    "fraysexual": "Someone who experiences attraction only toward people they do not know well, which fades as a bond forms.",
+    "frayromantic": "Someone who feels romantic attraction only toward strangers or acquaintances, which fades as they get closer.",
+    "lithosexual": "Someone who feels sexual attraction toward others, but does not want that attraction returned or acted on.",
+    "lithromantic": "Someone who feels romantic attraction toward others, but prefers that those feelings are not reciprocated.",
+    "cassgender": "Someone who feels their gender identity is indifferent, unimportant, or irrelevant to who they are.",
+    "demigender": "Someone who feels a partial connection to a specific gender, alongside a connection to another gender or no gender.",
+    "demiboy": "Someone who identifies partially as a boy or man, but not completely.",
+    "demigirl": "Someone who identifies partially as a girl or woman, but not completely.",
+    "fluxgender": "Someone whose gender identity stays the same type, but varies in intensity over time.",
+    "boyflux": "Someone whose connection to feeling male or masculine shifts in intensity from day to day.",
+    "girlflux": "Someone whose connection to feeling female or feminine shifts in intensity from day to day.",
+    "enbyflux": "Someone whose connection to nonbinary gender identities shifts in strength over time.",
+    "androsexual": "Someone who feels attraction toward masculinity or men.",
+    "gynesexual": "Someone who feels attraction toward femininity or women.",
+    "ambiamorous": "Someone who is happy and comfortable in either polyamorous or monogamous relationships.",
 }
 
-EMOJI_POOL = [
-    "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "🥹", "☺️", "😊", "😇", "🙂", "🙃", "😉",
-    "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓",
-    "😎", "🥸", "🤩", "🥳", "😏", "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖", "😫",
-    "😩", "🥺", "😢", "😭", "😮‍💨", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨",
-    "😰", "😥", "😓", "🫣", "🤗", "🫡", "🤔", "🫣", "🤭", "🥱", "👻", "💀", "☠️", "👽", "🤖",
-    "💩", "🎉", "🔥", "✨", "🌟", "💫", "💥", "❤️", "🧡", "💛", "💚", "💙", "💜", "🤎", "🖤"
-]
-
-_MOD_RE = re.compile(r"^\?(warn|weekban|permban|unban|tensecban|10secban)(?:\s+(.+))?$", re.IGNORECASE)
-_RULE_RE = re.compile(r"^\?rule\s*(\d*)?$", re.IGNORECASE)
-_MEOW_RE = re.compile(r"^\?meow\s*(\d*)?(?:\s+(.+))?$", re.IGNORECASE)
-_EMOJI_RE = re.compile(r"^\?emoji\s*(\d*)?$", re.IGNORECASE)
-_DICE_RE = re.compile(r"^\?dice\s*(\d*)?$", re.IGNORECASE)
-_NONSENSE_RE = re.compile(r"^\?nonsense\s*(\d*)?$", re.IGNORECASE)
-_UWU_RE = re.compile(r"^\?uwu(?:\_\((.+)\))?$", re.IGNORECASE)
-_FALSEBAN_RE = re.compile(r"^\?falseban(?:\_\((.+)\))?$", re.IGNORECASE)
-_MESSAGES_RE = re.compile(r"^\?messages(?:\s+(.+))?$", re.IGNORECASE)
-_FILES_RE = re.compile(r"^\?files(?:\s+(.+))?$", re.IGNORECASE)
-_CLEARCOMMANDS_RE = re.compile(r"^\?clearcommands\s*(\d+)$", re.IGNORECASE)
-
-SLUR_PATTERN = re.compile(r"(igga|igger|aggot)", re.IGNORECASE)
-
-def normalize_text(text):
-    substitutions = {
-        '@': 'a', '4': 'a',
-        '1': 'i', '!': 'i', '|': 'i',
-        '0': 'o',
-        '$': 's', '5': 's',
-        '3': 'e'
-    }
-    normalized = "".join(substitutions.get(c, c) for c in text.lower())
-    return normalized
-
-async def auto_unban_10s(guild, user, channel):
-    await asyncio.sleep(10)
-    try:
-        await guild.unban(user, reason="10-second temp ban expired.")
-        await channel.send(f"✅ **{user.name}**'s 10-second ban has expired and they have been unbanned!")
-    except discord.Forbidden:
-        await channel.send(f"⚠️ Tried to auto-unban **{user.name}**, but I lack permissions.")
-    except discord.HTTPException:
-        pass
-
-async def handle_manual_mod(message, action, target_and_reason):
-    if not message.author.guild_permissions.ban_members and action in ("weekban", "permban", "unban", "tensecban", "10secban"):
-        await message.channel.send("❌ You need **Ban Members** permissions to use this command.")
-        return
-
-    if not target_and_reason:
-        await message.channel.send(f"⚠️ **Usage:** `?{action} @User [reason]`")
-        return
-
-    parts = target_and_reason.split(" ", 1)
-    raw_target = parts[0]
-    reason = parts[1] if len(parts) > 1 else "No reason provided."
-
-    member = None
-    if message.mentions:
-        member = message.mentions[0]
-    elif raw_target.isdigit():
-        member = message.guild.get_member(int(raw_target))
-
-    if action == "warn":
-        target_name = member.mention if member else raw_target
-        await message.channel.send(f"⚠️ **{target_name}** will receive a warning in **10 seconds**...\n**Reason:** {reason}")
-        await asyncio.sleep(10)
-        await message.channel.send(f"⚠️ **{target_name}** has been officially warned!\n**Reason:** {reason}")
-
-    elif action in ("tensecban", "10secban"):
-        if not member:
-            await message.channel.send(f"❌ Could not find member `{raw_target}` in this server.")
-            return
-
-        user = member
-        await message.channel.send(f"⏱️ **{user.name}** will be banned for 10 seconds starting in **10 seconds**...\n**Reason:** {reason}")
-        await asyncio.sleep(10)
-
-        try:
-            await member.ban(reason=f"[10-Sec Ban] {reason}", delete_message_days=0)
-            await message.channel.send(f"⏱️ **{user.name}** has now been banned for **10 seconds**!\n**Reason:** {reason}")
-            asyncio.create_task(auto_unban_10s(message.guild, user, message.channel))
-        except discord.Forbidden:
-            await message.channel.send("❌ **Failed:** My role is lower than this user, or I lack **Ban Members** permission.")
-        except discord.HTTPException:
-            await message.channel.send("❌ An error occurred while attempting to ban this user.")
-
-    elif action == "permban":
-        if not member:
-            await message.channel.send(f"❌ Could not find member `{raw_target}` in this server.")
-            return
-
-        await message.channel.send(f"⏱️ **{member.name}** will be **permanently banned** in **10 seconds**...\n**Reason:** {reason}")
-        await asyncio.sleep(10)
-
-        try:
-            await member.ban(reason=reason, delete_message_days=0)
-            await message.channel.send(f"🚫 **{member.name}** has been permanently banned from the server.\n**Reason:** {reason}")
-        except discord.Forbidden:
-            await message.channel.send("❌ **Failed:** My role is lower than this user, or I lack **Ban Members** permission.")
-
-    elif action == "weekban":
-        if not member:
-            await message.channel.send(f"❌ Could not find member `{raw_target}` in this server.")
-            return
-
-        await message.channel.send(f"⏱️ **{member.name}** will be **banned for 7 days** in **10 seconds**...\n**Reason:** {reason}")
-        await asyncio.sleep(10)
-
-        try:
-            await member.ban(reason=f"[7-Day Ban] {reason}", delete_message_days=7)
-            await message.channel.send(f"⏳ **{member.name}** has been banned for 7 days.\n**Reason:** {reason}")
-        except discord.Forbidden:
-            await message.channel.send("❌ I lack permissions to ban this user.")
-
-    elif action == "unban":
-        banned_users = [entry async for entry in message.guild.bans()]
-        user_to_unban = None
-
-        for entry in banned_users:
-            if raw_target in (str(entry.user.id), entry.user.name, f"{entry.user.name}#{entry.user.discriminator}"):
-                user_to_unban = entry.user
-                break
-
-        if not user_to_unban:
-            await message.channel.send(f"❌ Could not find `{raw_target}` in the server ban list.")
-            return
-
-        try:
-            await message.guild.unban(user_to_unban, reason=reason)
-            await message.channel.send(f"✅ **{user_to_unban.name}** has been unbanned.")
-        except discord.Forbidden:
-            await message.channel.send("❌ I lack permissions to unban users.")
-
-async def handle_commands_list(message):
-    commands_text = (
-        "👑 **ADMIN & MODERATION COMMANDS**\n"
-        "• `?commands` - Displays this full command list.\n"
-        "• `?help` - Shows the help channel link.\n"
-        "• `?warn @User [reason]` - Warns a user (with a 10s delay).\n"
-        "• `?tensecban @User [reason]` or `?10secban` - Temporary 10-second ban.\n"
-        "• `?weekban @User [reason]` - 7-day server ban.\n"
-        "• `?permban @User [reason]` - Permanent server ban.\n"
-        "• `?unban <User ID / Name>` - Unbans a user.\n"
-        "• `?banlist` or `?bans` - Views all banned users.\n"
-        "• `?falseban_(name)` - Sends a fake ban prank message.\n"
-        "• `?clearcommands <number>` - Clears N pairs of command calls and bot replies.\n\n"
-        "📊 **STATS & TRACKING COMMANDS**\n"
-        "• `?messages [@User]` - Checks total messages sent since bot went online.\n"
-        "• `?files [@User]` - Checks total files/attachments uploaded since bot went online.\n\n"
-        "📜 **SERVER INFO COMMANDS**\n"
-        "• `?rule <1-10>` or `?rule<1-10>` - Displays specific server rule.\n"
-        "• `?botinfo` - Displays information about the bot.\n"
-        "• `?serverinfo` - Displays details and statistics about this server.\n\n"
-        "🎉 **FUN & UTILITY COMMANDS**\n"
-        "• `?meow [count]` - Sends meows (max 50).\n"
-        "• `?dice<limit>` - Rolls a dice up to specified limit.\n"
-        "• `?nonsense<length>` - Generates random string of text (max 125).\n"
-        "• `?uwu_(text)` - Translates text to uwu format.\n"
-        "• `?emoji<count>` - Sends random emojis up to specified count (max 50)."
-    )
-    await message.channel.send(commands_text)
-
-async def handle_help(message):
-    await message.channel.send("For all commands, check https://discord.com/channels/1460078014724440151/1533263896595398796")
-
-async def handle_botinfo(message):
-    await message.channel.send("Hello! We use a simple bot to moderate, assist, and add fun to our server. Don't worry, we aren't spying, it simply checks if any slurs are used. Admins can also use it to manually moderate users. For more info, head to https://discord.com/channels/1460078014724440151/1533263896595398796")
-
-async def handle_serverinfo(message):
-    guild = message.guild
-    text_channels = len(guild.text_channels)
-    voice_channels = len(guild.voice_channels)
-    created_at = guild.created_at.strftime("%B %d, %Y")
-
-    embed = discord.Embed(
-        title=f"🏰 {guild.name} Server Information",
-        color=discord.Color.blue()
-    )
-    if guild.icon:
-        embed.set_thumbnail(url=guild.icon.url)
-
-    embed.add_field(name="👑 Owner", value=f"{guild.owner.mention}" if guild.owner else "Unknown", inline=True)
-    embed.add_field(name="👥 Members", value=f"**{guild.member_count:,}**", inline=True)
-    embed.add_field(name="📅 Created On", value=created_at, inline=True)
-    embed.add_field(name="💬 Text Channels", value=str(text_channels), inline=True)
-    embed.add_field(name="🔊 Voice Channels", value=str(voice_channels), inline=True)
-    embed.add_field(name="🎭 Roles", value=str(len(guild.roles)), inline=True)
-    embed.set_footer(text=f"Server ID: {guild.id}")
-
-    await message.channel.send(embed=embed)
-
-async def handle_rule(message, rule_num):
-    if not rule_num:
-        await message.channel.send("📜 **`?rule` Command Guide**\nUse `?rule <number>` or `?rule<number>` to view a server rule! (e.g. `?rule 7` or `?rule7`)")
-        return
-
-    try:
-        num = int(rule_num)
-        if num in SERVER_RULES:
-            await message.channel.send(f"📜 **Rule #{num}:** {SERVER_RULES[num]}")
-        else:
-            await message.channel.send(f"No rule number {num}. Please enter a number between 1-10 after ?rule.")
-    except ValueError:
-        await message.channel.send("Please enter a valid number after ?rule.")
-
-async def handle_meow(message, count_str, text):
-    if count_str:
-        try:
-            count = int(count_str)
-            if count > 50:
-                await message.channel.send("Sowwy! Max meow is 50 :3")
-                return
-            if count >= 1:
-                meows = " ".join(["meow"] * count)
-                await message.channel.send(f"{meows} :3")
-                return
-        except ValueError:
-            pass
-
-    await message.channel.send("meow :3")
-
-async def handle_emoji(message, count_str):
-    if not count_str:
-        await message.channel.send("😃 **`?emoji` Command Guide** 😃\nSends a set of random emojis!\n\n**Usage:** `?emoji<count>`\n**Example:** `?emoji13` or `?emoji 5` *(Max: 50)*")
-        return
-
-    try:
-        count = int(count_str)
-        if count < 1:
-            await message.channel.send("❌ Please choose a number of at least **1**!")
-            return
-        if count > 50:
-            await message.channel.send("❌ Maximum limit is **50** emojis!")
-            return
-
-        chosen_emojis = "".join(random.choices(EMOJI_POOL, k=count))
-        await message.channel.send(chosen_emojis)
-    except ValueError:
-        await message.channel.send("❌ Please enter a valid number! Example: `?emoji13`")
-
-async def handle_messages(message, target_str):
-    target_user = message.author
-    if message.mentions:
-        target_user = message.mentions[0]
-    
-    count = user_message_counts.get(target_user.id, 0)
-    await message.channel.send(f"💬 **{target_user.name}** has sent **{count:,}** message(s) since I was online!")
-
-async def handle_files(message, target_str):
-    target_user = message.author
-    if message.mentions:
-        target_user = message.mentions[0]
-    
-    count = user_file_counts.get(target_user.id, 0)
-    await message.channel.send(f"📁 **{target_user.name}** has sent **{count:,}** file(s) since I was online!")
-
-async def handle_test(message, test_type):
-    await message.channel.send(f"🧪 **Test Executed:** `{test_type}` command test successful for {message.author.mention}!")
-
-async def handle_banlist(message):
-    if not message.author.guild_permissions.ban_members:
-        await message.channel.send("❌ You need the **Ban Members** permission to view the ban list.")
-        return
-
-    try:
-        banned_users = [entry async for entry in message.guild.bans()]
-    except discord.Forbidden:
-        await message.channel.send("❌ I don't have permission to view the server ban list.")
-        return
-
-    if not banned_users:
-        await message.channel.send("🎉 There are currently **no banned users** in this server!")
-        return
-
-    ban_list = [
-        f"• **{e.user.name}** (`ID: {e.user.id}`) — *{e.reason or 'No reason provided'}*"
-        for e in banned_users
-    ]
-    response = "**🚫 Currently Banned Users:**\n" + "\n".join(ban_list)
-
-    if len(response) > 2000:
-        await message.channel.send(f"There are **{len(banned_users)}** banned users (list is too long to display).")
-    else:
-        await message.channel.send(response)
-
-async def handle_dice(message, limit_str):
-    if not limit_str:
-        await message.channel.send("🎲 **Usage:** `?dice<limit>` (e.g. `?dice6` or `?dice20`)")
-        return
-
-    try:
-        limit = int(limit_str)
-    except ValueError:
-        await message.channel.send("❌ Please enter a valid number! Example: `?dice6`")
-        return
-
-    if limit < 1 or limit > 1000000:
-        await message.channel.send("❌ Limit must be between 1 and 1,000,000!")
-        return
-
-    roll = random.randint(1, limit)
-    await message.channel.send(f"🎲 You rolled a **{roll:,}** (out of **{limit:,}**)!")
-
-async def handle_nonsense(message, length_str):
-    if not length_str:
-        await message.channel.send("✨ **Usage:** `?nonsense<length>` (e.g. `?nonsense12` - Max: 125)")
-        return
-
-    try:
-        length = int(length_str)
-    except ValueError:
-        await message.channel.send("❌ Please provide a valid number!")
-        return
-
-    if length < 1 or length > 125:
-        await message.channel.send("❌ Length must be between 1 and 125!")
-        return
-
-    chars = string.ascii_letters + string.digits + string.punctuation
-    junk = "".join(random.choices(chars, k=length))
-    await message.channel.send(junk)
-
-async def handle_uwu(message, text):
-    if not text:
-        await message.channel.send("✨ **Usage:** `?uwu_(your text here)`")
-        return
-
-    uwu_text = text.replace('r', 'w').replace('R', 'W').replace('l', 'w').replace('L', 'W')
-    await message.channel.send(f"{uwu_text} :3")
-
-async def handle_falseban(message, target):
-    if not target:
-        await message.channel.send("✨ **Usage:** `?falseban_(username)`")
-        return
-
-    ban_msg = await message.channel.send(f"🚫 **{target}** has been permanently banned from the server.\n**Reason:** Manual action by {message.author.mention}")
-    await asyncio.sleep(3)
-    await ban_msg.edit(content=f"🚫 **{target}** has been permanently banned from the server.\n**Reason:** Manual action by {message.author.mention}\n\n*jk you're fine lol.*")
-
-async def handle_clearcommands(message, pairs_str):
-    if not message.author.guild_permissions.manage_messages:
-        await message.channel.send("❌ You need **Manage Messages** permissions to use this command.")
-        return
-
-    pairs = int(pairs_str)
-    target_count = pairs * 2
-
-    def is_bot_or_command(msg):
-        return msg.content.startswith(PREFIX) or msg.author == client.user
-
-    deleted = await message.channel.purge(limit=target_count * 5, check=is_bot_or_command)
-    to_delete = deleted[:target_count]
-
-    confirm = await message.channel.send(f"🧹 Cleared {len(to_delete)} messages ({pairs} command/reply pairs)!")
-    await confirm.delete(delay=3)
-
-async def execute_delayed_weekban(guild, user, channel):
-    await asyncio.sleep(10)
-    try:
-        await guild.ban(
-            user,
-            reason="[AutoMod] 2nd Slur Violation (7-Day Ban)",
-            delete_message_days=7
-        )
-    except discord.Forbidden:
-        await channel.send(f"❌ Tried to 7-day ban **{user.name}** for slur usage, but I lack permissions.")
-    except discord.HTTPException:
-        pass
-
-async def execute_delayed_permban(guild, user, channel):
-    await asyncio.sleep(30)
-    try:
-        await guild.ban(
-            user,
-            reason="[AutoMod] 3rd Slur Violation (Permanent Ban)",
-            delete_message_days=0
-        )
-    except discord.Forbidden:
-        await channel.send(f"❌ Tried to permanently ban **{user.name}** for slur usage, but I lack permissions.")
-    except discord.HTTPException:
-        pass
-
-@client.event
+# ---------------------------------------------------------
+# EMOJI CATEGORIES DICTIONARY
+# ---------------------------------------------------------
+EMOJI_LIBRARY = {
+    "chaos": ["🔥", "💥", "🦝", "🤪", "⚡", "😈", "💣", "💀", "🚨", "🌀", "🗿", "👁️", "⚔️", "🔪"],
+    "vibes": ["✨", "💫", "🌟", "🌸", "🌙", "🔮", "🍃", "🍄", "🪩", "☕", "🫧", "🌊", "🛋️", "🎧"],
+    "animals": ["🐱", "🐶", "🦊", "🐻", "🐼", "🐸", "🐍", "🪿", "🦉", "🐙", "🦈", "🦔", "🦖", "🦥"],
+    "food": ["🍕", "🧋", "🧃", "🍩", "🍣", "🌮", "🥞", "🍪", "🍜", "🍿", "🥐", "🧇", "🍨", "🍓"],
+    "pride": ["🏳️‍🌈", "🏳️‍⚧️", "💖", "💛", "💙", "💜", "🖤", "🤍", "🤎", "❤️‍🔥", "🌈", "🦄", "👑"],
+    "gaming": ["🎮", "🕹️", "🎲", "👾", "🎯", "🤖", "⚔️", "🛡️", "🏆", "🧩", "📡", "🚀"],
+}
+
+# ---------------------------------------------------------
+# BOT SETUP
+# ---------------------------------------------------------
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+
+bot = commands.Bot(command_prefix="?", intents=intents)
+
+
+@bot.event
 async def on_ready():
-    print(f"Logged in as {client.user} (ID: {client.user.id})")
+    print(f"Logged in as {bot.user.name} ({bot.user.id})")
 
-@client.event
-async def on_message(message):
-    if message.author.bot or not message.guild:
-        return
 
-    normalized_content = normalize_text(message.content)
-
-    if SLUR_PATTERN.search(normalized_content):
-        try:
-            await message.delete()
-        except (discord.HTTPException, discord.Forbidden):
-            pass
-
-        user_id = message.author.id
-        current_warnings = user_slur_warnings.get(user_id, 0) + 1
-        user_slur_warnings[user_id] = current_warnings
-
-        if current_warnings == 1:
-            await message.channel.send(
-                f"⚠️ **{message.author.name}** HAS BEEN WARNED FOR SLUR USAGE. IF THEY USE A SLUR AGAIN, THEY WILL BE BANNED FOR ONE WEEK."
-            )
-        elif current_warnings == 2:
-            await message.channel.send(
-                f"⚠️ **{message.author.name}** HAS BEEN BANNED FOR A WEEK FOR SLUR USAGE. IF THEY USE A SLUR AGAIN, THEY WILL BE BANNED PERMANENTLY."
-            )
-            asyncio.create_task(execute_delayed_weekban(message.guild, message.author, message.channel))
+# ---------------------------------------------------------
+# ?emoji COMMAND (Random or Categorized Emoji)
+# ---------------------------------------------------------
+@bot.command(name="emoji")
+async def send_emoji(ctx, category: str = None):
+    if category:
+        cat_key = category.lower()
+        if cat_key in EMOJI_LIBRARY:
+            selected_emoji = random.choice(EMOJI_LIBRARY[cat_key])
+            await ctx.send(f"{selected_emoji} *(Category: {cat_key.capitalize()})*")
         else:
-            await message.channel.send(
-                f"⚠️ **{message.author.name}** HAS BEEN BANNED PERMANENTLY FOR SLUR USAGE. IF YOU NEED TO APPEAL, DM @boi27vr"
+            valid_cats = ", ".join(f"`{c}`" for c in EMOJI_LIBRARY.keys())
+            await ctx.send(
+                f"Category **'{category}'** not found!\nAvailable categories: {valid_cats}"
             )
-            asyncio.create_task(execute_delayed_permban(message.guild, message.author, message.channel))
+    else:
+        # Pick from all available emojis
+        all_emojis = [e for group in EMOJI_LIBRARY.values() for e in group]
+        await ctx.send(random.choice(all_emojis))
+
+
+# ---------------------------------------------------------
+# ?queer COMMAND (Random Term)
+# ---------------------------------------------------------
+@bot.command(name="queer")
+async def queer_random(ctx):
+    term, definition = random.choice(list(QUEER_TERMS.items()))
+    embed = discord.Embed(
+        title=f"🏳️‍🌈 Pride Term: {term.capitalize()}",
+        description=definition,
+        color=discord.Color.magenta(),
+    )
+    await ctx.send(embed=embed)
+
+
+# ---------------------------------------------------------
+# DYNAMIC ?queer_<term> HANDLER
+# ---------------------------------------------------------
+@bot.event
+async def on_message(message):
+    if message.author.bot:
         return
 
-    user_id = message.author.id
-    user_message_counts[user_id] = user_message_counts.get(user_id, 0) + 1
+    # Check for ?queer_<term> custom commands
+    if message.content.lower().startswith("?queer_"):
+        raw_term = message.content[7:].strip().lower()
 
-    if message.attachments:
-        user_file_counts[user_id] = user_file_counts.get(user_id, 0) + len(message.attachments)
-
-    content = message.content.strip()
-
-    if not content.startswith(PREFIX):
+        if raw_term in QUEER_TERMS:
+            embed = discord.Embed(
+                title=f"🏳️‍🌈 Pride Term: {raw_term.capitalize()}",
+                description=QUEER_TERMS[raw_term],
+                color=discord.Color.magenta(),
+            )
+            await message.channel.send(embed=embed)
+        else:
+            available_terms = ", ".join(f"`{t}`" for t in QUEER_TERMS.keys())
+            await message.channel.send(
+                f"Term **'{raw_term}'** not found.\nAvailable terms: {available_terms}"
+            )
         return
 
-    lower = content.lower()
-
-    if lower == "?commands":
-        await handle_commands_list(message)
-        return
-
-    if lower == "?help":
-        await handle_help(message)
-        return
-
-    if lower == "?botinfo":
-        await handle_botinfo(message)
-        return
-
-    if lower == "?serverinfo":
-        await handle_serverinfo(message)
-        return
-
-    if lower in ("?banlist", "?bans"):
-        await handle_banlist(message)
-        return
-
-    if lower in ("?testwarn", "?testweekban", "?testpermban", "?testunban", "?testtensecban"):
-        try:
-            await message.delete()
-        except (discord.HTTPException, discord.Forbidden):
-            pass
-        await handle_test(message, lower.lstrip("?"))
-        return
-
-    m = _RULE_RE.match(content)
-    if m:
-        await handle_rule(message, m.group(1))
-        return
-
-    m = _MOD_RE.match(content)
-    if m:
-        try:
-            await message.delete()
-        except (discord.HTTPException, discord.Forbidden):
-            pass
-        await handle_manual_mod(message, m.group(1).lower(), m.group(2))
-        return
-
-    m = _MESSAGES_RE.match(content)
-    if m:
-        await handle_messages(message, m.group(1))
-        return
-
-    m = _FILES_RE.match(content)
-    if m:
-        await handle_files(message, m.group(1))
-        return
-
-    m = _MEOW_RE.match(content)
-    if m:
-        await handle_meow(message, m.group(1), m.group(2).strip() if m.group(2) else "")
-        return
-
-    m = _EMOJI_RE.match(content)
-    if m:
-        await handle_emoji(message, m.group(1))
-        return
-
-    m = _DICE_RE.match(content)
-    if m:
-        await handle_dice(message, m.group(1))
-        return
-
-    m = _NONSENSE_RE.match(content)
-    if m:
-        await handle_nonsense(message, m.group(1))
-        return
-
-    m = _UWU_RE.match(content)
-    if m:
-        await handle_uwu(message, m.group(1))
-        return
-
-    m = _FALSEBAN_RE.match(content)
-    if m:
-        try:
-            await message.delete()
-        except (discord.HTTPException, discord.Forbidden):
-            pass
-        await handle_falseban(message, m.group(1))
-        return
-
-    m = _CLEARCOMMANDS_RE.match(content)
-    if m:
-        await handle_clearcommands(message, m.group(1))
-        return
-
-    cmd = content.split()[0]
-    await message.channel.send(f"{cmd} doesn't exist. For all commands, check https://discord.com/channels/1460078014724440151/1533263896595398796")
-
-def main():
-    if not TOKEN:
-        raise SystemExit("DISCORD_TOKEN is not set.")
-    keep_alive()
-    client.run(TOKEN, log_handler=None)
-
-if __name__ == "__main__":
-    main()
+    # Keep all standard command processing active
+    await bot.process_commands(message)
