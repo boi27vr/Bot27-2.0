@@ -244,9 +244,9 @@ async def show_commands(ctx):
         "• `?botinfo` - Displays information about the bot and moderation policy.\n"
         "• `?serverinfo` - Displays details and statistics about this server.\n\n"
         "🎉 **FUN & UTILITY COMMANDS**\n"
-        "• `?meow [count]` - Sends meows (max 50).\n"
+        "• `?meow<count>` - Sends meows with :3 at the end (max 50).\n"
         "• `?dice<limit>` - Rolls a dice up to specified limit.\n"
-        "• `?nonsense<length>` - Generates random string of text (max 125).\n"
+        "• `?nonsense<length>` - Generates random string of symbols, numbers, and letters (max 125).\n"
         "• `?uwu_(text)` - Translates text to uwu format with :3.\n"
         "• `?queer` or `?queer_<term>` - Random or targeted LGBTQ+ dictionary lookup.\n"
         "• `?emoji<count>` - Sends random emojis up to specified count (max 50)."
@@ -392,17 +392,20 @@ async def server_info(ctx):
     await ctx.send(embed=embed)
 
 # ---------------------------------------------------------
-# FUN & UTILITY COMMANDS
+# DYNAMIC UNPREFIXED COMMAND HANDLER
 # ---------------------------------------------------------
-@bot.command(name="meow")
-async def meow_cmd(ctx, count: int = 1):
-    count = max(1, min(count, 50))
-    await ctx.send(" ".join(["meow"] * count))
-
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
         cmd = ctx.message.content[1:]
+
+        meow_match = re.match(r"^meow(\d+)$", cmd, re.IGNORECASE)
+        if meow_match:
+            count = min(int(meow_match.group(1)), 50)
+            if count > 0:
+                meows = " ".join(["meow"] * count) + " :3"
+                await ctx.send(meows)
+                return
 
         clear_match = re.match(r"^clearcommands(\d+)$", cmd, re.IGNORECASE)
         if clear_match:
@@ -440,7 +443,7 @@ async def on_command_error(ctx, error):
         nonsense_match = re.match(r"^nonsense(\d+)$", cmd, re.IGNORECASE)
         if nonsense_match:
             length = min(int(nonsense_match.group(1)), 125)
-            chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
+            chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:,.<>/?"
             rand_str = "".join(random.choice(chars) for _ in range(length))
             await ctx.send(f"🔤 `{rand_str}`")
             return
