@@ -1,9 +1,33 @@
+
+```python
+import os
+import re
 import random
+import threading
+import datetime
+from flask import Flask
 import discord
 from discord.ext import commands
 
 # ---------------------------------------------------------
-# QUEER TERMS DICTIONARY (Simple, Natural Definitions)
+# KEEP-ALIVE WEB SERVER FOR RENDER
+# ---------------------------------------------------------
+app = Flask("")
+
+@app.route("/")
+def home():
+    return "Bot is alive!"
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
+
+def keep_alive():
+    t = threading.Thread(target=run_web_server)
+    t.start()
+
+# ---------------------------------------------------------
+# QUEER TERMS DICTIONARY
 # ---------------------------------------------------------
 QUEER_TERMS = {
     # Core & Popular Terms
@@ -96,7 +120,7 @@ EMOJI_LIBRARY = {
 }
 
 # ---------------------------------------------------------
-# BOT SETUP
+# BOT SETUP & STATE TRACKING
 # ---------------------------------------------------------
 intents = discord.Intents.default()
 intents.message_content = True
@@ -104,59 +128,29 @@ intents.members = True
 
 bot = commands.Bot(command_prefix="?", intents=intents)
 
+# Track warnings for automod escalation
+user_warnings = {}
+
+# Regex patterns for automod slur filtering
+PROFANITY_PATTERN = re.compile(
+    r"\b(slur_pattern_1|slur_pattern_2)\b", re.IGNORECASE
+)
 
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user.name} ({bot.user.id})")
 
-
 # ---------------------------------------------------------
-# ?emoji COMMAND (Random or Categorized Emoji)
-# ---------------------------------------------------------
-@bot.command(name="emoji")
-async def send_emoji(ctx, category: str = None):
-    if category:
-        cat_key = category.lower()
-        if cat_key in EMOJI_LIBRARY:
-            selected_emoji = random.choice(EMOJI_LIBRARY[cat_key])
-            await ctx.send(f"{selected_emoji} *(Category: {cat_key.capitalize()})*")
-        else:
-            valid_cats = ", ".join(f"`{c}`" for c in EMOJI_LIBRARY.keys())
-            await ctx.send(
-                f"Category **'{category}'** not found!\nAvailable categories: {valid_cats}"
-            )
-    else:
-        # Pick from all available emojis
-        all_emojis = [e for group in EMOJI_LIBRARY.values() for e in group]
-        await ctx.send(random.choice(all_emojis))
-
-
-# ---------------------------------------------------------
-# ?queer COMMAND (Random Term)
-# ---------------------------------------------------------
-@bot.command(name="queer")
-async def queer_random(ctx):
-    term, definition = random.choice(list(QUEER_TERMS.items()))
-    embed = discord.Embed(
-        title=f"🏳️‍🌈 Pride Term: {term.capitalize()}",
-        description=definition,
-        color=discord.Color.magenta(),
-    )
-    await ctx.send(embed=embed)
-
-
-# ---------------------------------------------------------
-# DYNAMIC ?queer_<term> HANDLER
+# AUTOMOD & MESSAGE LISTENER
 # ---------------------------------------------------------
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
 
-    # Check for ?queer_<term> custom commands
+    # Check for dynamic ?queer_<term> commands
     if message.content.lower().startswith("?queer_"):
         raw_term = message.content[7:].strip().lower()
-
         if raw_term in QUEER_TERMS:
             embed = discord.Embed(
                 title=f"🏳️‍🌈 Pride Term: {raw_term.capitalize()}",
@@ -171,5 +165,99 @@ async def on_message(message):
             )
         return
 
-    # Keep all standard command processing active
+    # Automod Slur Check
+    normalized_content = message.content.lower()
+    if PROFANITY_PATTERN.search(normalized_content):
+        await message.delete()
+        user_id = message.author.id
+        user_warnings[user_id] = user_warnings.get(user_id, 0) + 1
+        warnings_count = user_warnings[user_id]
+
+        if warnings_count == 1:
+            await message.channel.send(
+                f"{message.author.mention}, that language is not allowed! **(Warning 1/3)**"
+            )
+        elif warnings_count == 2:
+            await message.channel.send(
+                f"{message.author.mention}, final warning! Next offense results in a ban. **(Warning 2/3)**"
+            )
+        elif warnings_count >= 3:
+            try:
+                await message.guild.ban(
+                    message.author, reason="Automod: Reached 3 warnings for prohibited language."
+                )
+                await message.channel.send(
+                    f"**{message.author}** has been banned for reaching 3 warnings."
+                )
+            except discord.Forbidden:
+                await message.channel.send(
+                    "Attempted to ban user, but I lack the required permissions!"
+                )
+        return
+
     await bot.process_commands(message)
+
+# ---------------------------------------------------------
+# COMMANDS
+# ---------------------------------------------------------
+@bot.command(name="queer")
+async def queer_random(ctx):
+    term, definition = random.choice(list(QUEER_TERMS.items()))
+    embed = discord.Embed(
+        title=f"🏳️‍🌈 Pride Term: {term.capitalize()}",
+        description=definition,
+        color=discord.Color.magenta(),
+    )
+    await ctx.send(embed=embed)
+
+@bot.command(name="emoji")
+async def send_emoji(ctx, category: str = None):
+    if category:
+        cat_key = category.lower()
+        if cat_key in EMOJI_LIBRARY:
+            selected_emoji = random.choice(EMOJI_LIBRARY[cat_key])
+            await ctx.send(f"{selected_emoji} *(Category: {cat_key.capitalize()})*")
+        else:
+            valid_cats = ", ".join(f"`{c}`" for c in EMOJI_LIBRARY.keys())
+            await ctx.send(
+                f"Category **'{category}'** not found!\nAvailable categories: {valid_cats}"
+            )
+    else:
+        all_emojis = [e for group in EMOJI_LIBRARY.values() for e in group]
+        await ctx.send(random.choice(all_emojis))
+
+@bot.command(name="clearcommands")
+@commands.has_permissions(manage_messages=True)
+async def clear_commands(ctx, amount: int = 10):
+    def is_bot_or_command(m):
+        return m.author == bot.user or m.content.startswith("?")
+
+    deleted = await ctx.channel.purge(limit=amount, check=is_bot_or_command)
+    await ctx.send(f"Cleaned up {len(deleted)} command-related messages.", delete_after=3)
+
+# ---------------------------------------------------------
+# ERROR HANDLING
+# ---------------------------------------------------------
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        return
+    elif isinstance(error, commands.MissingPermissions):
+        await ctx.send("You don't have permission to use that command!")
+    elif isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send("Missing required parameters for that command. Check usage and try again.")
+    else:
+        print(f"Unhandled Error: {error}")
+
+# ---------------------------------------------------------
+# STARTUP
+# ---------------------------------------------------------
+if __name__ == "__main__":
+    keep_alive()
+    token = os.environ.get("DISCORD_TOKEN")
+    if token:
+        bot.run(token)
+    else:
+        print("ERROR: DISCORD_TOKEN environment variable not set!")
+
+```
