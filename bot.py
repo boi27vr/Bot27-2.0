@@ -124,7 +124,7 @@ async def show_commands(ctx):
     cmd_text = (
         "👑 **ADMIN & MODERATION COMMANDS**\n"
         "• `?commands` - Displays this full command list.\n"
-        "• `?help` - Shows the help channel link.\n"
+        "• `?help` - Shows link for bot info and command details.\n"
         "• `?warn @User [reason]` - Warns a user (with a 10s delay).\n"
         "• `?tensecban @User [reason]` or `?10secban` - Temporary 10-second ban.\n"
         "• `?weekban @User [reason]` - 7-day server ban.\n"
@@ -138,7 +138,7 @@ async def show_commands(ctx):
         "• `?files [@User]` - Checks total files/attachments uploaded since bot went online.\n\n"
         "📜 **SERVER INFO COMMANDS**\n"
         "• `?rule <1-10>` or `?rule<1-10>` - Displays specific server rule.\n"
-        "• `?botinfo` - Displays information about the bot.\n"
+        "• `?botinfo` - Displays information about the bot and moderation policy.\n"
         "• `?serverinfo` - Displays details and statistics about this server.\n\n"
         "🎉 **FUN & UTILITY COMMANDS**\n"
         "• `?meow [count]` - Sends meows (max 50).\n"
