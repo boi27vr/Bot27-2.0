@@ -49,6 +49,7 @@ intents.message_content = True
 intents.members = True
 
 bot = commands.Bot(command_prefix="?", intents=intents)
+bot.remove_command("help")  # Removes default help command to allow custom ?help
 
 # Track warnings and stats (resets when bot restarts)
 user_warnings = {}
@@ -150,7 +151,9 @@ async def show_commands(ctx):
 
 @bot.command(name="help")
 async def help_cmd(ctx):
-    await ctx.send("Please check our official help/support channel for assistance!")
+    await ctx.send(
+        "For bot info, the command list, and more, go to https://discord.com/channels/1460078014724440151/1533263896595398796"
+    )
 
 @bot.command(name="warn")
 @commands.has_permissions(manage_messages=True)
@@ -240,11 +243,12 @@ async def show_rule(ctx, num: int):
 
 @bot.command(name="botinfo")
 async def bot_info(ctx):
-    embed = discord.Embed(title="🤖 Bot Information", color=discord.Color.blue())
-    embed.add_field(name="Name", value=bot.user.name, inline=True)
-    embed.add_field(name="Prefix", value="`?`", inline=True)
-    embed.add_field(name="Status", value="Online & Active", inline=True)
-    await ctx.send(embed=embed)
+    await ctx.send(
+        "Hello! We use a simple bot to moderate, assist, and add fun to our server. "
+        "Don't worry, we aren't spying, it simply checks if any slurs are used. "
+        "Admins can also use it to manually moderate users. "
+        "Check https://discord.com/channels/1460078014724440151/1533263896595398796 for more info."
+    )
 
 @bot.command(name="serverinfo")
 async def server_info(ctx):
