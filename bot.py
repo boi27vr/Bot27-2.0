@@ -29,20 +29,81 @@ def keep_alive():
 # QUEER DICTIONARY
 # ---------------------------------------------------------
 QUEER_DICT = {
-    "queer": "An umbrella term used by people who are not heterosexual or cisgender.",
-    "lesbian": "A woman or non-binary person who is attracted to women/non-binary people.",
-    "gay": "An umbrella term or specifically a man/non-binary person attracted to men.",
-    "bisexual": "Attracted to two or more genders.",
-    "transgender": "Having a gender identity that differs from the sex assigned at birth.",
-    "transmasc": "A trans person who identifies more with masculinity or male identity.",
-    "transfem": "A trans person who identifies more with femininity or female identity.",
-    "pansexual": "Attracted to people regardless of their gender identity.",
-    "asexual": "Experiencing little to no sexual attraction to others.",
-    "aromantic": "Experiencing little to no romantic attraction to others.",
-    "nonbinary": "Having a gender identity that doesn't fit strictly into male or female.",
-    "genderfluid": "Having a gender identity that changes over time.",
-    "agender": "Identifying as having no gender or being gender neutral.",
-    "demisexual": "Experiencing sexual attraction only after forming a strong emotional bond."
+    # Core & Common Terms
+    "lesbian": "A woman who is attracted to other women.",
+    "gay": "A man who is attracted to other men.",
+    "bisexual": "Someone who is attracted to people of two or more genders.",
+    "transgender": "Someone whose gender identity is different from the sex they were assigned at birth.",
+    "queer": "An umbrella term for anyone who falls outside of heterosexual or cisgender norms.",
+    "questioning": "Someone who is taking time to explore and figure out their gender or sexuality.",
+    "intersex": "Someone born with physical traits or chromosomes that do not fit standard male or female categories.",
+    "asexual": "Someone who experiences little to no sexual attraction to others.",
+    "aromantic": "Someone who experiences little to no romantic attraction to others.",
+    "pansexual": "Someone who is attracted to people regardless of their gender.",
+    "nonbinary": "Someone whose gender identity sits outside the strict binary of being solely a man or a woman.",
+    "genderfluid": "Someone whose gender identity changes and shifts over time.",
+    "agender": "Someone who feels gender neutral or feels like they do not have a gender at all.",
+    "demisexual": "Someone who only feels sexual attraction after building a strong emotional bond with someone.",
+    "genderqueer": "An umbrella term for people whose gender identity does not align with traditional societal norms.",
+    "bigender": "Someone who experiences two distinct genders simultaneously or moves between them.",
+    "demiromantic": "Someone who only develops romantic feelings after forming a deep emotional connection.",
+    "aroace": "Short for aromantic asexual, meaning someone who feels little to no romantic or sexual attraction.",
+    "panromantic": "Someone who feels romantic attraction toward people regardless of their gender identity.",
+    "omnisexual": "Attracted to people of all genders, though gender still plays a role in how they feel that attraction.",
+    "omniromantic": "Romantically attracted to people of all genders, while still noticing and caring about gender identity.",
+
+    # Popular & Moderate Niche
+    "cisgender": "Someone whose gender identity aligns with the sex they were assigned at birth.",
+    "androgyne": "Someone whose gender expression or identity blends both masculine and feminine traits, or sits between them.",
+    "neutrois": "Someone who identifies as having a neutral or non existent gender identity.",
+    "trigender": "Someone who experiences three distinct gender identities at the same time or moves between them.",
+    "pangender": "Someone whose gender identity encompasses many or all genders at once.",
+    "xenogender": "A nonbinary gender identity defined by concepts outside traditional human ideas of gender, like nature, space, or art.",
+    "polyamorous": "Someone who desires or engages in open romantic or sexual relationships with more than one partner at a time, with everyone's consent.",
+    "polysexual": "Someone who is attracted to many, but not necessarily all, genders.",
+    "polyromantic": "Someone who is romantically attracted to many, but not necessarily all, genders.",
+    "cupiosexual": "Someone on the asexual spectrum who does not feel sexual attraction, but still desires a sexual relationship.",
+    "cupioromantic": "Someone on the aromantic spectrum who does not feel romantic attraction, but still desires a romantic relationship.",
+    "apothisexual": "Someone on the asexual spectrum who feels sex repulsed and has no desire for sexual activity.",
+    "apothiromantic": "Someone on the aromantic spectrum who feels romance repulsed and has no desire for romantic relationships.",
+    "greysexual": "Someone who experiences sexual attraction very rarely, weakly, or only under specific circumstances.",
+    "greyromantic": "Someone who experiences romantic attraction very rarely, weakly, or only under specific circumstances.",
+    "abrosexual": "Someone whose sexual orientation fluctuates, changes, or fluidly shifts over time.",
+    "abroromantic": "Someone whose romantic orientation fluctuates, changes, or fluidly shifts over time.",
+    "sapphic": "An umbrella term for women or nonbinary individuals who feel romantic or sexual attraction to other women.",
+    "achillean": "An umbrella term for men or nonbinary individuals who feel romantic or sexual attraction to other men.",
+    "diamoric": "An umbrella term for romantic or sexual relationships involving at least one nonbinary person.",
+    "toric": "A nonbinary person who is attracted to men.",
+    "trixic": "A nonbinary person who is attracted to women.",
+    "transmasculine": "A transgender person who was assigned female at birth but identifies more with masculinity or a male gender path.",
+    "transmasc": "A transgender person who was assigned female at birth but identifies more with masculinity or a male gender path.",
+    "transfeminine": "A transgender person who was assigned male at birth but identifies more with femininity or a female gender path.",
+    "transfem": "A transgender person who was assigned male at birth but identifies more with femininity or a female gender path.",
+    "aliqusexual": "Someone who only feels sexual attraction under specific, unique circumstances or conditions.",
+    "aliquromantic": "Someone who only feels romantic attraction under specific, unique circumstances or conditions.",
+
+    # Super Niche Terms
+    "aegosexual": "Someone on the asexual spectrum who enjoys sexual content or ideas, but feels no desire to participate themselves.",
+    "aegoromantic": "Someone on the aromantic spectrum who enjoys romantic stories or media, but feels no desire for a romantic relationship in real life.",
+    "quoiromantic": "Someone who finds the concept of romantic attraction confusing or hard to distinguish from friendship.",
+    "quoisexual": "Someone who feels sexual attraction is an unclear, confusing, or non applicable concept to them.",
+    "reciprosextual": "Someone who only feels sexual attraction toward someone after knowing that person is attracted to them first.",
+    "reciproromantic": "Someone who only feels romantic attraction toward someone after knowing that person has romantic feelings for them first.",
+    "fraysexual": "Someone who experiences attraction only toward people they do not know well, which fades as a bond forms.",
+    "frayromantic": "Someone who feels romantic attraction only toward strangers or acquaintances, which fades as they get closer.",
+    "lithosexual": "Someone who feels sexual attraction toward others, but does not want that attraction returned or acted on.",
+    "lithromantic": "Someone who feels romantic attraction toward others, but prefers that those feelings are not reciprocated.",
+    "cassgender": "Someone who feels their gender identity is indifferent, unimportant, or irrelevant to who they are.",
+    "demigender": "Someone who feels a partial connection to a specific gender, alongside a connection to another gender or no gender.",
+    "demiboy": "Someone who identifies partially as a boy or man, but not completely.",
+    "demigirl": "Someone who identifies partially as a girl or woman, but not completely.",
+    "fluxgender": "Someone whose gender identity stays the same type, but varies in intensity over time.",
+    "boyflux": "Someone whose connection to feeling male or masculine shifts in intensity from day to day.",
+    "girlflux": "Someone whose connection to feeling female or feminine shifts in intensity from day to day.",
+    "enbyflux": "Someone whose connection to nonbinary gender identities shifts in strength over time.",
+    "androsexual": "Someone who feels attraction toward masculinity or men.",
+    "gynesexual": "Someone who feels attraction toward femininity or women.",
+    "ambiamorous": "Someone who is happy and comfortable in either polyamorous or monogamous relationships."
 }
 
 # ---------------------------------------------------------
@@ -53,15 +114,13 @@ intents.message_content = True
 intents.members = True
 
 bot = commands.Bot(command_prefix="?", intents=intents)
-bot.remove_command("help")  # Allows custom ?help command
+bot.remove_command("help")
 
-# User tracking memory
 user_warnings = {}
 message_counts = {}
 file_counts = {}
-historical_bans = set()  # Permanent record of banned users (survives unbans)
+historical_bans = set()
 
-# Regex pattern catching base slurs and common leetspeak/symbol bypasses (1/!/| for i, 3 for e, @/4 for a, 0 for o)
 PROFANITY_PATTERN = re.compile(
     r"[n|n][i1!\|l]gg[a@4]|[n|n][i1!\|l]gg[e3]r|[f|f][a@4]gg[o0]t", 
     re.IGNORECASE
@@ -79,13 +138,11 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    # Track message and file counts
     user_id = message.author.id
     message_counts[user_id] = message_counts.get(user_id, 0) + 1
     if message.attachments:
         file_counts[user_id] = file_counts.get(user_id, 0) + len(message.attachments)
 
-    # Dynamic ?falseban @User [reason] check
     if message.content.lower().startswith("?falseban"):
         try:
             await message.delete()
@@ -104,7 +161,6 @@ async def on_message(message):
         await notice.edit(content=f"🚨 **SYSTEM NOTICE:** {target} will be permanently banned in 10 secs...\n\njk lol you're fine 😜")
         return
 
-    # Dynamic ?uwu_(text) check
     if message.content.lower().startswith("?uwu_"):
         try:
             await message.delete()
@@ -116,7 +172,6 @@ async def on_message(message):
         await message.channel.send(uwu_text)
         return
 
-    # Dynamic ?queer_<term> lookup
     if message.content.lower().startswith("?queer_"):
         term = message.content[7:].strip().lower()
         if term in QUEER_DICT:
@@ -125,7 +180,6 @@ async def on_message(message):
             await message.channel.send(f"Couldn't find `{term}` in the dictionary! Type `?queer` for a random term.")
         return
 
-    # Automod Slur Escalation Check
     normalized_content = message.content.lower()
     if PROFANITY_PATTERN.search(normalized_content):
         try:
@@ -149,7 +203,7 @@ async def on_message(message):
                 historical_bans.add(f"{message.author.name} ({message.author.id})")
                 await message.guild.ban(message.author, reason="Automod: Strike 3 (7-day ban)")
                 await message.channel.send(f"⛔ **{message.author}** has been banned for 7 days. **(Strike 3/4)**")
-                await asyncio.sleep(604800)  # 7 days
+                await asyncio.sleep(604800)
                 await message.guild.unban(message.author, reason="7-day automod ban expired")
             except discord.Forbidden:
                 await message.channel.send("Failed to ban user due to missing permissions!")
