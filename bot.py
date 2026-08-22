@@ -1,4 +1,4 @@
-import os
+limport os
 import re
 import random
 import asyncio
@@ -154,11 +154,12 @@ async def on_message(message):
         reason = args[2] if len(args) > 2 else "Unspecified Violation"
         
         notice = await message.channel.send(
-            f"🚨 **SYSTEM NOTICE:** {target} will be permanently banned in 10 secs. "
+            f"⚠️ ATTENTION ⚠️\n"
+            f"{target} will be permanently banned in 10 secs. "
             f"For support and/or ban appealing, dm @boi27vr. Reason: {reason}"
         )
-        await asyncio.sleep(2)
-        await notice.edit(content=f"🚨 **SYSTEM NOTICE:** {target} will be permanently banned in 10 secs...\n\njk lol you're fine 😜")
+        await asyncio.sleep(10)
+        await notice.edit(content=f"jk you're fine lol")
         return
 
     if message.content.lower().startswith("?uwu_"):
@@ -191,29 +192,41 @@ async def on_message(message):
         strike = user_warnings[user_id]
 
         if strike == 1:
-            await message.channel.send(f"⚠️ {message.author.mention} has been warned for prohibited language! **(Strike 1/4)**")
+            await message.channel.send(
+                f"⚠️ ATTENTION ⚠️\n"
+                f"⚠️ {message.author.mention} has been warned for prohibited language! **(Strike 1/4)**"
+            )
         elif strike == 2:
             try:
                 await message.guild.kick(message.author, reason="Automod: Strike 2 (Prohibited language)")
-                await message.channel.send(f"👞 {message.author.mention} was kicked from the server. **(Strike 2/4)**")
+                await message.channel.send(
+                    f"⚠️ ATTENTION ⚠️\n"
+                    f"👞 {message.author.mention} was kicked from the server. **(Strike 2/4)**"
+                )
             except discord.Forbidden:
                 await message.channel.send("Failed to kick user due to missing permissions!")
         elif strike == 3:
             try:
                 historical_bans.add(f"{message.author.name} ({message.author.id})")
                 await message.guild.ban(message.author, reason="Automod: Strike 3 (7-day ban)")
-                await message.channel.send(f"⛔ **{message.author}** has been banned for 7 days. **(Strike 3/4)**")
+                await message.channel.send(
+                    f"⚠️ ATTENTION ⚠️\n"
+                    f"✅️ {message.author.mention} has been banned for 7 days"
+                )
                 await asyncio.sleep(604800)
                 await message.guild.unban(message.author, reason="7-day automod ban expired")
             except discord.Forbidden:
-                await message.channel.send("Failed to ban user due to missing permissions!")
+                await message.channel.send(f"❌️ {message.author.mention} was not banned. Check if I have ban perms.")
         elif strike >= 4:
             try:
                 historical_bans.add(f"{message.author.name} ({message.author.id})")
                 await message.guild.ban(message.author, reason="Automod: Strike 4 (Permanent ban)")
-                await message.channel.send(f"⛔ **{message.author}** has been permanently banned from the server. **(Strike 4/4)**")
+                await message.channel.send(
+                    f"⚠️ ATTENTION ⚠️\n"
+                    f"✅️ {message.author.mention} has been banned for permanently"
+                )
             except discord.Forbidden:
-                await message.channel.send("Failed to ban user due to missing permissions!")
+                await message.channel.send(f"❌️ {message.author.mention} was not banned. Check if I have ban perms.")
         return
 
     await bot.process_commands(message)
@@ -274,7 +287,10 @@ async def warn_user(ctx, member: discord.Member, *, reason: str = "No reason pro
     
     user_id = member.id
     user_warnings[user_id] = user_warnings.get(user_id, 0) + 1
-    await ctx.send(f"⚠️ {member.mention} has been warned! Reason: **{reason}** (Total warnings: {user_warnings[user_id]})")
+    await ctx.send(
+        f"⚠️ ATTENTION ⚠️\n"
+        f"⚠️ {member.mention} has been warned! Reason: **{reason}** (Total warnings: {user_warnings[user_id]})"
+    )
 
 @bot.command(name="unwarn")
 @commands.has_permissions(manage_messages=True)
@@ -292,13 +308,18 @@ async def ten_sec_ban(ctx, member: discord.Member, *, reason: str = "Unspecified
 
     historical_bans.add(f"{member.name} ({member.id})")
     await ctx.send(
-        f"🚨 **SYSTEM NOTICE:** {member.mention} will be banned for 10 seconds in 10 secs. "
+        f"⚠️ ATTENTION ⚠️\n"
+        f"{member.mention} will be banned for 10 seconds in 10 secs. "
         f"For support and/or ban appealing, dm @boi27vr Reason: {reason}"
     )
     await asyncio.sleep(10)
-    await ctx.guild.ban(member, reason=reason)
-    await asyncio.sleep(10)
-    await ctx.guild.unban(member, reason="10-second ban expired")
+    try:
+        await ctx.guild.ban(member, reason=reason)
+        await ctx.send(f"✅️ {member.mention} has been banned for 10 seconds")
+        await asyncio.sleep(10)
+        await ctx.guild.unban(member, reason="10-second ban expired")
+    except discord.Forbidden:
+        await ctx.send(f"❌️ {member.mention} was not banned. Check if I have ban perms.")
 
 @bot.command(name="weekban")
 @commands.has_permissions(ban_members=True)
@@ -310,11 +331,16 @@ async def week_ban(ctx, member: discord.Member, *, reason: str = "Unspecified Vi
 
     historical_bans.add(f"{member.name} ({member.id})")
     await ctx.send(
-        f"🚨 **SYSTEM NOTICE:** {member.mention} will be banned for 7 days in 10 secs. "
+        f"⚠️ ATTENTION ⚠️\n"
+        f"{member.mention} will be banned for 7 days in 10 secs. "
         f"For support and/or ban appealing, dm @boi27vr Reason: {reason}"
     )
     await asyncio.sleep(10)
-    await ctx.guild.ban(member, reason=reason)
+    try:
+        await ctx.guild.ban(member, reason=reason)
+        await ctx.send(f"✅️ {member.mention} has been banned for 7 days")
+    except discord.Forbidden:
+        await ctx.send(f"❌️ {member.mention} was not banned. Check if I have ban perms.")
 
 @bot.command(name="permban")
 @commands.has_permissions(ban_members=True)
@@ -326,24 +352,41 @@ async def perm_ban(ctx, member: discord.Member, *, reason: str = "Unspecified Vi
 
     historical_bans.add(f"{member.name} ({member.id})")
     await ctx.send(
-        f"🚨 **SYSTEM NOTICE:** {member.mention} will be permanently banned in 10 secs. "
+        f"⚠️ ATTENTION ⚠️\n"
+        f"{member.mention} will be permanently banned in 10 secs. "
         f"For support and/or ban appealing, dm @boi27vr Reason: {reason}"
     )
     await asyncio.sleep(10)
-    await ctx.guild.ban(member, reason=reason)
+    try:
+        await ctx.guild.ban(member, reason=reason)
+        await ctx.send(f"✅️ {member.mention} has been banned for permanently")
+    except discord.Forbidden:
+        await ctx.send(f"❌️ {member.mention} was not banned. Check if I have ban perms.")
 
 @bot.command(name="unban")
 @commands.has_permissions(ban_members=True)
 async def unban_user(ctx, *, user_info: str):
-    clean_info = user_info.replace("<@", "").replace(">", "").strip()
-    banned_users = [entry async for entry in ctx.guild.bans()]
-    for ban_entry in banned_users:
+    clean_id = re.sub(r"\D", "", user_info)
+    
+    try:
+        banned_entries = [entry async for entry in ctx.guild.bans()]
+    except discord.Forbidden:
+        await ctx.send("❌ I don't have the **Ban Members** permission to view the ban list!")
+        return
+
+    target_user = None
+
+    for ban_entry in banned_entries:
         user = ban_entry.user
-        if str(user.id) == clean_info or user.name.lower() == clean_info.lower():
-            await ctx.guild.unban(user)
-            await ctx.send(f"✅ Unbanned **{user.name}**.")
-            return
-    await ctx.send(f"User `{user_info}` was not found in active bans.")
+        if (clean_id and str(user.id) == clean_id) or (user.name.lower() == user_info.lower().strip()):
+            target_user = user
+            break
+
+    if target_user:
+        await ctx.guild.unban(target_user)
+        await ctx.send(f"✅ Successfully unbanned **{target_user.name}** (`{target_user.id}`)!")
+    else:
+        await ctx.send(f"❌ Could not find `{user_info}` in the server's ban list. Make sure to provide their exact **User ID** or **Username**.")
 
 @bot.command(name="banlist", aliases=["bans"])
 @commands.has_permissions(ban_members=True)
@@ -451,7 +494,18 @@ async def on_command_error(ctx, error):
         emoji_match = re.match(r"^emoji(\d+)$", cmd, re.IGNORECASE)
         if emoji_match:
             count = min(int(emoji_match.group(1)), 50)
-            emojis = ["🔥", "💥", "✨", "💫", "🐱", "🐶", "🍕", "🧋", "🎮", "🎲", "👑", "🚀"]
+            emojis = [
+                "🔥", "💥", "✨", "💫", "🐱", "🐶", "🍕", "🧋", "🎮", "🎲", "👑", "🚀",
+                "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "🥲", "🥹", "☺️", "😊",
+                "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋",
+                "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🥸", "🤩", "🥳", "😏",
+                "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖", "😫", "😩", "🥺",
+                "😢", "😭", "😮‍💨", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😱",
+                "📁", "📜", "🌈", "👞", "⛔", "⚠️", "❌", "✅", "🎉", "📊", "🏰", "👻",
+                "👽", "🤖", "🎃", "💩", "😈", "👿", "👺", "👹", "💀", "☠️", "🤡", "👾",
+                "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❤️‍🔥", "❤️‍🩹",
+                "💖", "💗", "💓", "💞", "💕", "💋", "🍿", "🍔", "🍟", "🍦", "🍩", "🍪"
+            ]
             res = "".join(random.choice(emojis) for _ in range(count))
             await ctx.send(res)
             return
