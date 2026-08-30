@@ -435,7 +435,7 @@ async def server_info(ctx):
     await ctx.send(embed=embed)
 
 # ---------------------------------------------------------
-# DYNAMIC UNPREFIXED COMMAND HANDLER
+# DYNAMIC UNPREFIXED COMMAND HANDLER & ERROR HANDLING
 # ---------------------------------------------------------
 @bot.event
 async def on_command_error(ctx, error):
@@ -509,6 +509,11 @@ async def on_command_error(ctx, error):
             res = "".join(random.choice(emojis) for _ in range(count))
             await ctx.send(res)
             return
+
+        attempted_cmd = ctx.invoked_with or cmd.split()[0]
+        await ctx.send(
+            f"?{attempted_cmd} doesn't exist. Check https://discord.com/channels/1460078014724440151/1533263896595398796 for every command."
+        )
 
     elif isinstance(error, commands.MissingPermissions):
         await ctx.send("You don't have the required permissions to execute this command!")
