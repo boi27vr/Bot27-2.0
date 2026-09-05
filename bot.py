@@ -155,8 +155,99 @@ PROFANITY_PATTERN = re.compile(
     re.IGNORECASE
 )
 
+# ---------------------------------------------------------
+# UI ROLE SELECTION VIEW (EXACT 14 ROLES)
+# ---------------------------------------------------------
+class RoleSelectionView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    async def toggle_role(self, interaction: discord.Interaction, role_name: str):
+        role = discord.utils.get(interaction.guild.roles, name=role_name)
+        if not role:
+            await interaction.response.send_message(
+                f"❌ The **{role_name}** role does not exist on this server. Please check the exact role name spelling!", 
+                ephemeral=True
+            )
+            return
+
+        if role in interaction.user.roles:
+            try:
+                await interaction.user.remove_roles(role)
+                await interaction.response.send_message(f"➖ Removed the **{role.name}** role!", ephemeral=True)
+            except discord.Forbidden:
+                await interaction.response.send_message("❌ I don't have permission to remove that role.", ephemeral=True)
+        else:
+            try:
+                await interaction.user.add_roles(role)
+                await interaction.response.send_message(f"➕ Added the **{role.name}** role!", ephemeral=True)
+            except discord.Forbidden:
+                await interaction.response.send_message("❌ I don't have permission to assign that role.", ephemeral=True)
+
+    # --- ROW 0: COMMUNITY & INTEREST ROLES ---
+    @discord.ui.button(label="Pride", style=discord.ButtonStyle.primary, custom_id="role_pride", row=0)
+    async def pride_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_role(interaction, "Pride")
+
+    @discord.ui.button(label="CW Boi27", style=discord.ButtonStyle.primary, custom_id="role_cw_boi27", row=0)
+    async def cw_boi27_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_role(interaction, "CW Boi27")
+
+    @discord.ui.button(label="Pungo Party", style=discord.ButtonStyle.primary, custom_id="role_pungo_party", row=0)
+    async def pungo_party_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_role(interaction, "Pungo Party")
+
+    @discord.ui.button(label="Bot Enjoyers", style=discord.ButtonStyle.primary, custom_id="role_bot_enjoyers", row=0)
+    async def bot_enjoyers_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_role(interaction, "Bot Enjoyers")
+
+    # --- ROW 1: CONTENT & GENERAL ROLES ---
+    @discord.ui.button(label="General", style=discord.ButtonStyle.secondary, custom_id="role_general", row=1)
+    async def general_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_role(interaction, "General")
+
+    @discord.ui.button(label="Funni Vids from Staff", style=discord.ButtonStyle.secondary, custom_id="role_funni_vids", row=1)
+    async def funni_vids_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_role(interaction, "Funni Vids from Staff")
+
+    # --- ROW 2: SINGLE PRONOUNS ---
+    @discord.ui.button(label="He/Him", style=discord.ButtonStyle.success, custom_id="role_he_him", row=2)
+    async def he_him_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_role(interaction, "He/Him")
+
+    @discord.ui.button(label="She/Her", style=discord.ButtonStyle.success, custom_id="role_she_her", row=2)
+    async def she_her_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_role(interaction, "She/Her")
+
+    @discord.ui.button(label="They/Them", style=discord.ButtonStyle.success, custom_id="role_they_them", row=2)
+    async def they_them_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_role(interaction, "They/Them")
+
+    # --- ROW 3: COMBINATION PRONOUNS ---
+    @discord.ui.button(label="He/She", style=discord.ButtonStyle.success, custom_id="role_he_she", row=3)
+    async def he_she_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_role(interaction, "He/She")
+
+    @discord.ui.button(label="He/They", style=discord.ButtonStyle.success, custom_id="role_he_they", row=3)
+    async def he_they_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_role(interaction, "He/They")
+
+    @discord.ui.button(label="She/They", style=discord.ButtonStyle.success, custom_id="role_she_they", row=3)
+    async def she_they_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_role(interaction, "She/They")
+
+    # --- ROW 4: GENERAL PRONOUN PREFERENCES ---
+    @discord.ui.button(label="Ask for my pronouns", style=discord.ButtonStyle.danger, custom_id="role_ask_pronouns", row=4)
+    async def ask_pronouns_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_role(interaction, "Ask for my pronouns")
+
+    @discord.ui.button(label="Any pronouns", style=discord.ButtonStyle.danger, custom_id="role_any_pronouns", row=4)
+    async def any_pronouns_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.toggle_role(interaction, "Any pronouns")
+
 @bot.event
 async def on_ready():
+    bot.add_view(RoleSelectionView())
     print(f"Logged in as {bot.user.name} ({bot.user.id})")
 
 # ---------------------------------------------------------
@@ -269,6 +360,9 @@ async def show_commands(ctx):
         "👑 **ADMIN & MODERATION COMMANDS**\n"
         "• `?commands` - Displays this full command list.\n"
         "• `?help` - Shows link for bot info and command details.\n"
+        "• `?roles` - Posts the interactive button panel for server roles.\n"
+        "• `?addrole @User <Role>` - Manually adds a role to a user.\n"
+        "• `?removerole @User <Role>` - Manually removes a role from a user.\n"
         "• `?warn @User [reason]` - Warns a user immediately.\n"
         "• `?unwarn @User` - Clears all warnings from a user.\n"
         "• `?tensecban @User [reason]` or `?10secban` - Temporary 10-second ban.\n"
@@ -300,6 +394,50 @@ async def help_cmd(ctx):
     await ctx.send(
         "For bot info, the command list, and more, go to https://discord.com/channels/1460078014724440151/1533263896595398796"
     )
+
+@bot.command(name="roles")
+@commands.has_permissions(manage_roles=True)
+async def send_roles_panel(ctx):
+    embed = discord.Embed(
+        title="🎭 Server Role Selection",
+        description="Click any button below to toggle that role on or off for yourself!",
+        color=discord.Color.gold()
+    )
+    await ctx.send(embed=embed, view=RoleSelectionView())
+
+@bot.command(name="addrole")
+@commands.has_permissions(manage_roles=True)
+async def add_role_cmd(ctx, member: discord.Member, *, role: discord.Role):
+    if role >= ctx.guild.me.top_role:
+        await ctx.send("❌ I cannot assign this role because it is higher than or equal to my highest role!")
+        return
+
+    if role in member.roles:
+        await ctx.send(f"{member.mention} already has the **{role.name}** role!")
+        return
+
+    try:
+        await member.add_roles(role)
+        await ctx.send(f"✅ Successfully added the **{role.name}** role to {member.mention}!")
+    except discord.Forbidden:
+        await ctx.send("❌ I don't have permission to assign that role.")
+
+@bot.command(name="removerole")
+@commands.has_permissions(manage_roles=True)
+async def remove_role_cmd(ctx, member: discord.Member, *, role: discord.Role):
+    if role >= ctx.guild.me.top_role:
+        await ctx.send("❌ I cannot manage this role because it is higher than or equal to my highest role!")
+        return
+
+    if role not in member.roles:
+        await ctx.send(f"{member.mention} doesn't have the **{role.name}** role!")
+        return
+
+    try:
+        await member.remove_roles(role)
+        await ctx.send(f"✅ Successfully removed the **{role.name}** role from {member.mention}!")
+    except discord.Forbidden:
+        await ctx.send("❌ I don't have permission to remove that role.")
 
 @bot.command(name="rule")
 async def rule_cmd(ctx, number: int = None):
