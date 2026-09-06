@@ -151,7 +151,7 @@ PROFANITY_PATTERN = re.compile(
 )
 
 # ---------------------------------------------------------
-# UI ROLE SELECTION VIEW (CUSTOM COLOR & EMOJI LAYOUT)
+# UI ROLE SELECTION VIEW (ALL GRAY BUTTONS + CUSTOM/HEART EMOJIS)
 # ---------------------------------------------------------
 class RoleSelectionView(discord.ui.View):
     def __init__(self):
@@ -179,63 +179,63 @@ class RoleSelectionView(discord.ui.View):
             except discord.Forbidden:
                 await interaction.response.send_message("❌ I don't have permission to assign that role.", ephemeral=True)
 
-    # --- ROW 0: COMMUNITY & GRAY ROLES ---
-    @discord.ui.button(label="Pride", style=discord.ButtonStyle.danger, emoji="🏳️‍🌈", custom_id="role_pride", row=0)
+    # --- ROW 0: COMMUNITY & INTEREST ROLES ---
+    @discord.ui.button(label="Pride", style=discord.ButtonStyle.secondary, emoji="🌈", custom_id="role_pride", row=0)
     async def pride_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.toggle_role(interaction, "Pride")
 
-    @discord.ui.button(label="CW Boi27", style=discord.ButtonStyle.secondary, custom_id="role_cw_boi27", row=0)
+    @discord.ui.button(label="CW Boi27", style=discord.ButtonStyle.secondary, emoji="🌐", custom_id="role_cw_boi27", row=0)
     async def cw_boi27_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.toggle_role(interaction, "CW Boi27")
 
-    @discord.ui.button(label="Pungo Party", style=discord.ButtonStyle.secondary, custom_id="role_pungo_party", row=0)
+    @discord.ui.button(label="Pungo Party", style=discord.ButtonStyle.secondary, emoji="🎉", custom_id="role_pungo_party", row=0)
     async def pungo_party_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.toggle_role(interaction, "Pungo Party")
 
-    @discord.ui.button(label="Bot Enjoyers", style=discord.ButtonStyle.secondary, custom_id="role_bot_enjoyers", row=0)
+    @discord.ui.button(label="Bot Enjoyers", style=discord.ButtonStyle.secondary, emoji="🤖", custom_id="role_bot_enjoyers", row=0)
     async def bot_enjoyers_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.toggle_role(interaction, "Bot Enjoyers")
 
-    # --- ROW 1: GENERAL & SINGLE PRONOUNS ---
-    @discord.ui.button(label="General", style=discord.ButtonStyle.secondary, custom_id="role_general", row=1)
+    # --- ROW 1: SERVER CONTENT & SINGLE PRONOUNS ---
+    @discord.ui.button(label="General", style=discord.ButtonStyle.secondary, emoji="<:Boi27:1542099049165889556>", custom_id="role_general", row=1)
     async def general_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.toggle_role(interaction, "General")
 
-    @discord.ui.button(label="Funni Vids from Staff", style=discord.ButtonStyle.secondary, custom_id="role_funni_vids", row=1)
+    @discord.ui.button(label="Funni Vids from Staff", style=discord.ButtonStyle.secondary, emoji="<:MuchLaughterIndeed:1542097394030874624>", custom_id="role_funni_vids", row=1)
     async def funni_vids_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.toggle_role(interaction, "Funni Vids from Staff")
 
-    @discord.ui.button(label="He/Him", style=discord.ButtonStyle.primary, emoji="🔵", custom_id="role_he_him", row=1)
+    @discord.ui.button(label="He/Him", style=discord.ButtonStyle.secondary, emoji="💙", custom_id="role_he_him", row=1)
     async def he_him_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.toggle_role(interaction, "He/Him")
 
-    @discord.ui.button(label="She/Her", style=discord.ButtonStyle.danger, emoji="🩷", custom_id="role_she_her", row=1)
+    @discord.ui.button(label="She/Her", style=discord.ButtonStyle.secondary, emoji="🩷", custom_id="role_she_her", row=1)
     async def she_her_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.toggle_role(interaction, "She/Her")
 
     # --- ROW 2: COMBINATION PRONOUNS & THEY/THEM ---
-    @discord.ui.button(label="They/Them", style=discord.ButtonStyle.danger, emoji="🟡", custom_id="role_they_them", row=2)
+    @discord.ui.button(label="They/Them", style=discord.ButtonStyle.secondary, emoji="💛", custom_id="role_they_them", row=2)
     async def they_them_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.toggle_role(interaction, "They/Them")
 
-    @discord.ui.button(label="He/She", style=discord.ButtonStyle.primary, emoji="🟣", custom_id="role_he_she", row=2)
+    @discord.ui.button(label="He/She", style=discord.ButtonStyle.secondary, emoji="💜", custom_id="role_he_she", row=2)
     async def he_she_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.toggle_role(interaction, "He/She")
 
-    @discord.ui.button(label="She/They", style=discord.ButtonStyle.success, emoji="🟠", custom_id="role_she_they", row=2)
+    @discord.ui.button(label="She/They", style=discord.ButtonStyle.secondary, emoji="🧡", custom_id="role_she_they", row=2)
     async def she_they_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.toggle_role(interaction, "She/They")
 
-    @discord.ui.button(label="He/They", style=discord.ButtonStyle.success, emoji="🟢", custom_id="role_he_they", row=2)
+    @discord.ui.button(label="He/They", style=discord.ButtonStyle.secondary, emoji="💚", custom_id="role_he_they", row=2)
     async def he_they_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.toggle_role(interaction, "He/They")
 
     # --- ROW 3: GENERAL PRONOUN PREFERENCES ---
-    @discord.ui.button(label="Ask for my pronouns", style=discord.ButtonStyle.danger, emoji="🔴", custom_id="role_ask_pronouns", row=3)
+    @discord.ui.button(label="Ask for my pronouns", style=discord.ButtonStyle.secondary, emoji="❤️", custom_id="role_ask_pronouns", row=3)
     async def ask_pronouns_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.toggle_role(interaction, "Ask for my pronouns")
 
-    @discord.ui.button(label="Any pronouns", style=discord.ButtonStyle.danger, emoji="🤎", custom_id="role_any_pronouns", row=3)
+    @discord.ui.button(label="Any pronouns", style=discord.ButtonStyle.secondary, emoji="🤎", custom_id="role_any_pronouns", row=3)
     async def any_pronouns_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.toggle_role(interaction, "Any pronouns")
 
