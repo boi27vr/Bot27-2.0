@@ -144,7 +144,6 @@ user_warnings = {}
 message_counts = {}
 file_counts = {}
 historical_bans = set()
-loop_count = 0
 
 PROFANITY_PATTERN = re.compile(
     r"[n|n][i1!\|l]gg[a@4]|[n|n][i1!\|l]gg[e3]r|[f|f][a@4]gg[o0]t", 
@@ -250,19 +249,6 @@ async def on_ready():
 # ---------------------------------------------------------
 @bot.event
 async def on_message(message):
-    global loop_count
-
-    # Check for ?loop before ignoring bot messages so the bot can loop itself up to 50 times
-    if message.content.strip() == "?loop":
-        if loop_count < 50:
-            loop_count += 1
-            await asyncio.sleep(0.5)  # Brief pause to avoid instant rate limits
-            await message.channel.send("?loop")
-        else:
-            await message.channel.send("⚠️ ERROR ⚠️")
-            loop_count = 0  # Reset counter
-        return
-
     if message.author.bot:
         return
 
@@ -379,7 +365,7 @@ async def show_commands(ctx):
         "• `?unban <User ID / Name>` - Unbans a user.\n"
         "• `?banlist` or `?bans` - Views all current and past banned users.\n"
         "• `?falseban @User [reason]` - Sends a fake ban prank message.\n"
-        "• `?loop` - Triggers a looped message command (Admin only).\n"
+        "• `?loop` - Triggers rapid 50-message loop (Admin only).\n"
         "• `?clearcommands<number>` - Clears N pairs of command calls and bot replies.\n\n"
         "📊 **STATS & TRACKING COMMANDS**\n"
         "• `?messages [@User]` - Checks total messages sent since bot went online.\n"
@@ -451,9 +437,23 @@ async def remove_role_cmd(ctx, member: discord.Member, *, role: discord.Role):
 @bot.command(name="loop")
 @commands.has_permissions(administrator=True)
 async def loop_cmd(ctx):
-    global loop_count
-    loop_count = 1
-    await ctx.send("?loop")
+    for i in range(50):
+        try:
+            await ctx.send("?loop")
+        except discord.HTTPException as e:
+            # Catch rate limit (HTTP 429) or API issues before a potential crash
+            if e.status == 429:
+                await asyncio.sleep(2)
+                break
+            else:
+                break
+        except Exception:
+            break
+
+    try:
+        await ctx.send("⚠️ ERROR ⚠️")
+    except discord.HTTPException:
+        pass
 
 @bot.command(name="rule")
 async def rule_cmd(ctx, number: int = None):
