@@ -366,6 +366,7 @@ async def show_commands(ctx):
         "• `?banlist` or `?bans` - Views all current and past banned users.\n"
         "• `?falseban @User [reason]` - Sends a fake ban prank message.\n"
         "• `?loop` - Triggers rapid 50-message loop (Admin only).\n"
+        "• `?null` - A mysterious command...\n"
         "• `?clearcommands<number>` - Clears N pairs of command calls and bot replies.\n\n"
         "📊 **STATS & TRACKING COMMANDS**\n"
         "• `?messages [@User]` - Checks total messages sent since bot went online.\n"
@@ -441,7 +442,6 @@ async def loop_cmd(ctx):
         try:
             await ctx.send("?loop")
         except discord.HTTPException as e:
-            # Catch rate limit (HTTP 429) or API issues before a potential crash
             if e.status == 429:
                 await asyncio.sleep(2)
                 break
@@ -454,6 +454,37 @@ async def loop_cmd(ctx):
         await ctx.send("⚠️ ERROR ⚠️")
     except discord.HTTPException:
         pass
+
+@bot.command(name="null")
+async def null_cmd(ctx):
+    msg = await ctx.send("?null does not exist")
+    await asyncio.sleep(1.5)
+    
+    # Repeats ?null 4 more times
+    for _ in range(4):
+        await msg.edit(content="?null does not exist\n?null")
+        await asyncio.sleep(0.8)
+    
+    # Eerie sequence
+    await msg.edit(content="B3AR-27")
+    await asyncio.sleep(2.0)
+    
+    await msg.edit(content="[REDACTED]")
+    await asyncio.sleep(1.5)
+    
+    await msg.edit(content="1943-1947")
+    await asyncio.sleep(2.0)
+    
+    await msg.edit(content="[REDACTED]")
+    await asyncio.sleep(1.5)
+    
+    # UPSIDE-DOWN "SAVE US" repeated 10 times
+    upside_down_text = "\n".join(["S∩ ƎΛ∀S"] * 10)
+    await msg.edit(content=upside_down_text)
+    await asyncio.sleep(2.5)
+    
+    # Final redaction
+    await msg.edit(content="[REDACTED]")
 
 @bot.command(name="rule")
 async def rule_cmd(ctx, number: int = None):
