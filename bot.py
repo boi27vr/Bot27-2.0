@@ -458,45 +458,61 @@ async def loop_cmd(ctx):
 async def null_cmd(ctx):
     not_exist_msg = "?null doesn't exist. Check https://discord.com/channels/1460078014724440151/1533263896595398796 for every command."
     
-    # Send initial non-existent command message
+    # 1. Send initial non-existent command message
     msg = await ctx.send(not_exist_msg)
     await asyncio.sleep(0.4)
     
-    # Repeats standard message 4 more times (5 total repetitions with 0.4s pauses)
+    # 2. Loop to append the standard message 4 times (deleting old message and sending new stacked messages)
+    current_content = not_exist_msg
     for _ in range(4):
-        await msg.edit(content=f"{msg.content}\n{not_exist_msg}")
+        current_content += f"\n{not_exist_msg}"
+        old_msg = msg
+        msg = await ctx.send(current_content)
+        try:
+            await old_msg.delete()
+        except discord.NotFound:
+            pass
         await asyncio.sleep(0.4)
     
-    # Replaces all repeating messages with [REDACTED]
-    await msg.edit(content="[REDACTED]")
+    # helper function to delete previous message and send new one
+    async def send_next_and_delete_prev(prev_msg, text):
+        new_msg = await ctx.send(text)
+        try:
+            await prev_msg.delete()
+        except discord.NotFound:
+            pass
+        return new_msg
+
+    # 3. Replaces stacked messages with [REDACTED]
+    msg = await send_next_and_delete_prev(msg, "[REDACTED]")
     await asyncio.sleep(0.4)
     
-    # Displays B3AR-27
-    await msg.edit(content="B3AR-27")
+    # 4. Displays B3AR-27
+    msg = await send_next_and_delete_prev(msg, "B3AR-27")
     await asyncio.sleep(0.4)
     
-    # Replaces with [REDACTED]
-    await msg.edit(content="[REDACTED]")
+    # 5. Replaces with [REDACTED]
+    msg = await send_next_and_delete_prev(msg, "[REDACTED]")
     await asyncio.sleep(0.4)
     
-    # Displays 1943-1947
-    await msg.edit(content="1943-1947")
+    # 6. Displays 1943-1947
+    msg = await send_next_and_delete_prev(msg, "1943-1947")
     await asyncio.sleep(0.4)
     
-    # Replaces with [REDACTED]
-    await msg.edit(content="[REDACTED]")
+    # 7. Replaces with [REDACTED]
+    msg = await send_next_and_delete_prev(msg, "[REDACTED]")
     await asyncio.sleep(0.4)
     
-    # Displays "SAVE US" upside down 5 times
+    # 8. Displays "SAVE US" upside down 5 times
     upside_down_text = "\n".join(["S∩ ƎΛ∀S"] * 5)
-    await msg.edit(content=upside_down_text)
+    msg = await send_next_and_delete_prev(msg, upside_down_text)
     await asyncio.sleep(0.4)
     
-    # Replaces with [REDACTED]
-    await msg.edit(content="[REDACTED]")
+    # 9. Replaces with [REDACTED]
+    msg = await send_next_and_delete_prev(msg, "[REDACTED]")
     await asyncio.sleep(0.4)
     
-    # Deletes the message entirely
+    # 10. Deletes the final [REDACTED] message
     try:
         await msg.delete()
     except discord.NotFound:
