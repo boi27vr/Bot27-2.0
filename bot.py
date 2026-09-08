@@ -458,34 +458,49 @@ async def loop_cmd(ctx):
 async def null_cmd(ctx):
     not_exist_msg = "?null doesn't exist. Check https://discord.com/channels/1460078014724440151/1533263896595398796 for every command."
     
+    # Send initial non-existent command message
     msg = await ctx.send(not_exist_msg)
-    await asyncio.sleep(0.5)
+    await asyncio.sleep(0.4)
     
-    # Fast repeats of ?null (4 times)
+    # Repeats standard message 4 more times (5 total repetitions with 0.4s pauses)
     for _ in range(4):
-        await msg.edit(content=f"{not_exist_msg}\n?null")
-        await asyncio.sleep(0.3)
+        await msg.edit(content=f"{msg.content}\n{not_exist_msg}")
+        await asyncio.sleep(0.4)
     
-    # Rapid eerie sequence
+    # Replaces all repeating messages with [REDACTED]
+    await msg.edit(content="[REDACTED]")
+    await asyncio.sleep(0.4)
+    
+    # Displays B3AR-27
     await msg.edit(content="B3AR-27")
-    await asyncio.sleep(0.8)
+    await asyncio.sleep(0.4)
     
+    # Replaces with [REDACTED]
     await msg.edit(content="[REDACTED]")
     await asyncio.sleep(0.4)
     
+    # Displays 1943-1947
     await msg.edit(content="1943-1947")
-    await asyncio.sleep(0.8)
+    await asyncio.sleep(0.4)
     
+    # Replaces with [REDACTED]
     await msg.edit(content="[REDACTED]")
     await asyncio.sleep(0.4)
     
-    # UPSIDE-DOWN "SAVE US" repeated 10 times
-    upside_down_text = "\n".join(["S∩ ƎΛ∀S"] * 10)
+    # Displays "SAVE US" upside down 5 times
+    upside_down_text = "\n".join(["S∩ ƎΛ∀S"] * 5)
     await msg.edit(content=upside_down_text)
-    await asyncio.sleep(0.8)
+    await asyncio.sleep(0.4)
     
-    # Final redaction
+    # Replaces with [REDACTED]
     await msg.edit(content="[REDACTED]")
+    await asyncio.sleep(0.4)
+    
+    # Deletes the message entirely
+    try:
+        await msg.delete()
+    except discord.NotFound:
+        pass
 
 @bot.command(name="rule")
 async def rule_cmd(ctx, number: int = None):
