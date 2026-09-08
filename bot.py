@@ -366,7 +366,6 @@ async def show_commands(ctx):
         "• `?banlist` or `?bans` - Views all current and past banned users.\n"
         "• `?falseban @User [reason]` - Sends a fake ban prank message.\n"
         "• `?loop` - Triggers rapid 50-message loop (Admin only).\n"
-        "• `?null` - A mysterious command...\n"
         "• `?clearcommands<number>` - Clears N pairs of command calls and bot replies.\n\n"
         "📊 **STATS & TRACKING COMMANDS**\n"
         "• `?messages [@User]` - Checks total messages sent since bot went online.\n"
@@ -457,31 +456,33 @@ async def loop_cmd(ctx):
 
 @bot.command(name="null")
 async def null_cmd(ctx):
-    msg = await ctx.send("?null does not exist")
-    await asyncio.sleep(1.5)
+    not_exist_msg = "?null doesn't exist. Check https://discord.com/channels/1460078014724440151/1533263896595398796 for every command."
     
-    # Repeats ?null 4 more times
+    msg = await ctx.send(not_exist_msg)
+    await asyncio.sleep(0.5)
+    
+    # Fast repeats of ?null (4 times)
     for _ in range(4):
-        await msg.edit(content="?null does not exist\n?null")
-        await asyncio.sleep(0.8)
+        await msg.edit(content=f"{not_exist_msg}\n?null")
+        await asyncio.sleep(0.3)
     
-    # Eerie sequence
+    # Rapid eerie sequence
     await msg.edit(content="B3AR-27")
-    await asyncio.sleep(2.0)
+    await asyncio.sleep(0.8)
     
     await msg.edit(content="[REDACTED]")
-    await asyncio.sleep(1.5)
+    await asyncio.sleep(0.4)
     
     await msg.edit(content="1943-1947")
-    await asyncio.sleep(2.0)
+    await asyncio.sleep(0.8)
     
     await msg.edit(content="[REDACTED]")
-    await asyncio.sleep(1.5)
+    await asyncio.sleep(0.4)
     
     # UPSIDE-DOWN "SAVE US" repeated 10 times
     upside_down_text = "\n".join(["S∩ ƎΛ∀S"] * 10)
     await msg.edit(content=upside_down_text)
-    await asyncio.sleep(2.5)
+    await asyncio.sleep(0.8)
     
     # Final redaction
     await msg.edit(content="[REDACTED]")
