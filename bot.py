@@ -1,6 +1,5 @@
-# BAN OVERHAUL 1.4
+# BAN OVERHAUL 1.5
 import os
-import time
 import discord
 from discord.ext import commands, tasks
 from aiohttp import web
@@ -20,7 +19,7 @@ TARGET_CHANNEL_ID = 1460084752274165823
 historical_bans = set()
 
 
-# --- WEB SERVER FOR RENDER PORT CHECK & UPTIME PINGS ---
+# --- WEB SERVER FOR RENDER PORT CHECK ---
 async def handle_health(request):
     return web.Response(text="Bot is online and healthy!")
 
@@ -32,10 +31,6 @@ async def start_web_server():
     port = int(os.getenv("PORT", 10000))
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
-
-@bot.event
-async def setup_hook():
-    bot.loop.create_task(start_web_server())
 
 
 # --- DURATION PARSER HELPER ---
@@ -154,17 +149,17 @@ class AppealView(discord.ui.View):
         boi_member = discord.utils.get(guild.members, name="boi27vr")
         boi_ping = boi_member.mention if boi_member else "@boi27vr"
 
-        # Disable all UI elements after submission
+        # Disable UI components
         for child in self.children:
             child.disabled = True
         await interaction.message.edit(view=self)
 
         await interaction.response.send_message(
-            "✅ **Appeal Submitted!** A private ticket thread has been created for your appeal review.",
+            "✅ **Appeal Submitted!** A private thread has been created for your appeal.",
             ephemeral=True
         )
 
-        # Create private thread in target channel
+        # Create private thread attached to message
         target_channel = guild.get_channel(TARGET_CHANNEL_ID) or interaction.channel
         thread = await target_channel.create_thread(
             name=f"Appeal - {interaction.user.name}",
@@ -173,15 +168,13 @@ class AppealView(discord.ui.View):
             reason=f"Ban appeal thread for {interaction.user}"
         )
 
-        # Add appealing member and boi27vr to private thread
         await thread.add_user(interaction.user)
         if boi_member:
             await thread.add_user(boi_member)
 
-        # Initial explanation embed in thread
         embed = discord.Embed(
-            title="📋 Ban Appeal Information",
-            description=f"A new appeal thread has been opened for {interaction.user.mention}.",
+            title="📋 Ban Appeal Submitted",
+            description=f"Appeal created for {interaction.user.mention}.",
             color=discord.Color.blue(),
             timestamp=interaction.created_at
         )
@@ -190,23 +183,26 @@ class AppealView(discord.ui.View):
         embed.add_field(name="Evidence Type", value=self.evidence_kind, inline=True)
 
         await thread.send(
-            content=f"🚨 {boi_ping} — A new ban appeal has been submitted by {interaction.user.mention}!",
+            content=f"🚨 {boi_ping} — A new ban appeal thread has been created for {interaction.user.mention}!",
             embed=embed
         )
 
-        # Prompt user to elaborate and upload evidence
         await thread.send(
             f"Hello {interaction.user.mention},\n\n"
-            "Please use this private thread to **elaborate on what happened** and **upload/paste any relevant evidence** "
-            f"(screenshots, videos, or witness information regarding your choice: *{self.evidence_kind}*).\n"
-            "Staff will review your evidence and update your case here."
+            "Please use this private thread to **elaborate on what happened** and **provide any relevant evidence** "
+            f"(screenshots, videos, or witnesses corresponding to your choice: *{self.evidence_kind}*)."
         )
 
 
-# --- BOT EVENTS & ESCALATION LOGIC ---
+# --- BOT EVENTS ---
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user.name} ({bot.user.id})")
+    
+    if not hasattr(bot, 'web_server_started'):
+        bot.loop.create_task(start_web_server())
+        bot.web_server_started = True
+
     if not check_ban_expirations.is_running():
         check_ban_expirations.start()
 
@@ -285,6 +281,19 @@ async def on_message(message: discord.Message):
         return
 
     await bot.process_commands(message)
+
+
+# --- ERROR HANDLING ---
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(f"⚠️ **Missing Argument:** You forgot to mention a member! Example: `{ctx.prefix}{ctx.command.name} @member`")
+    elif isinstance(error, commands.MissingPermissions):
+        await ctx.send("❌ You do not have permission to use this command.")
+    elif isinstance(error, commands.MemberNotFound):
+        await ctx.send("❌ Member not found. Please make sure you tag a valid user in this server.")
+    else:
+        print(f"Unhandled Command Error: {error}")
 
 
 # --- PERSISTENT UNBAN PROCESSOR ---
@@ -373,7 +382,7 @@ async def prompt_appeal(ctx, member: discord.Member):
         description=(
             f"Hello {member.mention},\n\n"
             "An administrator has opened an appeal form for you. Please select your choices in the dropdown options below "
-            "and click **Submit Appeal** to start a private appeal ticket."
+            "and click **Submit Appeal** to open your private appeal thread."
         ),
         color=discord.Color.blue()
     )
