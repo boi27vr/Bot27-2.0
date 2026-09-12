@@ -1,8 +1,9 @@
-# BAN OVERHAUL 1.2
+# BAN OVERHAUL 1.3
 import os
 import time
 import discord
 from discord.ext import commands, tasks
+from aiohttp import web
 import moderation  # Import standalone moderation logic
 
 # --- BOT CONFIGURATION ---
@@ -17,6 +18,24 @@ TARGET_CHANNEL_ID = 1460084752274165823
 
 # Historical ban logging set
 historical_bans = set()
+
+
+# --- WEB SERVER FOR RENDER PORT CHECK & UPTIME PINGS ---
+async def handle_health(request):
+    return web.Response(text="Bot is online and healthy!")
+
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get('/', handle_health)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.getenv("PORT", 10000))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+
+@bot.event
+async def setup_hook():
+    bot.loop.create_task(start_web_server())
 
 
 # --- DURATION PARSER HELPER ---
