@@ -1,4 +1,4 @@
-# BAN OVERHAUL 1.5
+# BAN OVERHAUL 1.6
 import os
 import discord
 from discord.ext import commands, tasks
@@ -12,7 +12,7 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="?", intents=intents)
 
-# Target Channel ID for all logs, alerts, and appeals
+# Target Channel ID for logging system alerts and ban evasions
 TARGET_CHANNEL_ID = 1460084752274165823
 
 # Historical ban logging set
@@ -96,7 +96,6 @@ class AppealView(discord.ui.View):
         options=[
             discord.SelectOption(label="There was an error", value="There was an error", emoji="⚠️"),
             discord.SelectOption(label="They overexaggerated", value="They overexaggerated", emoji="⚖️"),
-            discord.SelectOption(label="I admit mistake & learned my lesson", value="Admitted mistake", emoji="🙏"),
             discord.SelectOption(label="Account was compromised/hacked", value="Account compromised", emoji="🔒"),
             discord.SelectOption(label="Other reason", value="Other reason", emoji="❓"),
         ],
@@ -152,16 +151,18 @@ class AppealView(discord.ui.View):
         # Disable UI components
         for child in self.children:
             child.disabled = True
-        await interaction.message.edit(view=self)
+        try:
+            await interaction.message.edit(view=self)
+        except Exception:
+            pass
 
         await interaction.response.send_message(
             "✅ **Appeal Submitted!** A private thread has been created for your appeal.",
             ephemeral=True
         )
 
-        # Create private thread attached to message
-        target_channel = guild.get_channel(TARGET_CHANNEL_ID) or interaction.channel
-        thread = await target_channel.create_thread(
+        # Create private thread attached to current message in current channel
+        thread = await interaction.channel.create_thread(
             name=f"Appeal - {interaction.user.name}",
             type=discord.ChannelType.private_thread,
             auto_archive_duration=1440,
@@ -173,8 +174,8 @@ class AppealView(discord.ui.View):
             await thread.add_user(boi_member)
 
         embed = discord.Embed(
-            title="📋 Ban Appeal Submitted",
-            description=f"Appeal created for {interaction.user.mention}.",
+            title="📋 Ban Appeal Details",
+            description=f"Appeal thread created for {interaction.user.mention}.",
             color=discord.Color.blue(),
             timestamp=interaction.created_at
         )
@@ -221,12 +222,18 @@ async def on_member_join(member: discord.Member):
         if banned_role:
             roles_to_remove = [r for r in member.roles if r != guild.default_role]
             if roles_to_remove:
-                await member.remove_roles(*roles_to_remove, reason="Ban evasion prevention")
-            await member.add_roles(banned_role, reason="Re-applied soft ban on rejoin")
+                try:
+                    await member.remove_roles(*roles_to_remove, reason="Ban evasion prevention")
+                except discord.Forbidden:
+                    pass
+            try:
+                await member.add_roles(banned_role, reason="Re-applied soft ban on rejoin")
+            except discord.Forbidden:
+                pass
 
             moderation.schedule_unban(guild.id, member.id, 86400)
             
-            target_channel = guild.get_channel(TARGET_CHANNEL_ID)
+            target_channel = guild.get_channel(TARGET_CHANNEL_ID) or guild.text_channels[0]
             if target_channel:
                 await target_channel.send(
                     f"🚨 {boi_ping} **BAN EVASION DETECTED** 🚨\n"
@@ -248,7 +255,7 @@ async def on_message(message: discord.Message):
 
         try:
             await message.delete()
-        except discord.NotFound:
+        except Exception:
             pass
 
         action, count = moderation.next_action(guild.id, member.id)
@@ -331,7 +338,7 @@ async def before_check_bans():
 async def ban_cmd(ctx, member: discord.Member, duration_str: str = "perm", *, reason: str = "Unspecified Violation"):
     try:
         await ctx.message.delete()
-    except discord.NotFound:
+    except Exception:
         pass
 
     seconds = parse_duration(duration_str)
@@ -344,25 +351,29 @@ async def ban_cmd(ctx, member: discord.Member, duration_str: str = "perm", *, re
 
     if seconds:
         moderation.schedule_unban(ctx.guild.id, member.id, seconds)
-        await target_channel.send(f"⛔ {member.mention} has been restricted for **{duration_str}**. Reason: **{reason}**")
+        await ctx.send(f"⛔ {member.mention} has been restricted for **{duration_str}**. Reason: **{reason}**")
     else:
         moderation.cancel_pending_unban(ctx.guild.id, member.id)
-        await target_channel.send(f"⛔ {member.mention} has been permanently restricted. Reason: **{reason}**")
+        await ctx.send(f"⛔ {member.mention} has been permanently restricted. Reason: **{reason}**")
 
 
 @bot.command(name="unban")
 @commands.has_permissions(ban_members=True)
 async def unban_user(ctx, member: discord.Member):
+    try:
+        await ctx.message.delete()
+    except Exception:
+        pass
+
     moderation.cancel_pending_unban(ctx.guild.id, member.id)
     moderation.reset_offender(ctx.guild.id, member.id)
 
-    target_channel = ctx.guild.get_channel(TARGET_CHANNEL_ID) or ctx.channel
     banned_role = discord.utils.get(ctx.guild.roles, name="Banned")
 
     if banned_role and banned_role in member.roles:
         try:
             await member.remove_roles(banned_role, reason="Unbanned by admin command")
-            await target_channel.send(f"✅ Successfully unbanned {member.mention}, cleared strikes, and removed `@Banned`!")
+            await ctx.send(f"✅ Successfully unbanned {member.mention}, cleared strikes, and removed `@Banned`!")
         except discord.Forbidden:
             await ctx.send("❌ Permission denied while removing the Banned role.")
     else:
@@ -374,7 +385,7 @@ async def unban_user(ctx, member: discord.Member):
 async def prompt_appeal(ctx, member: discord.Member):
     try:
         await ctx.message.delete()
-    except discord.NotFound:
+    except Exception:
         pass
 
     embed = discord.Embed(
@@ -388,15 +399,15 @@ async def prompt_appeal(ctx, member: discord.Member):
     )
     
     view = AppealView(target_user=member)
-    target_channel = ctx.guild.get_channel(TARGET_CHANNEL_ID) or ctx.channel
-    await target_channel.send(content=member.mention, embed=embed, view=view)
+    # Posts directly into the channel where ?appeal command was executed
+    await ctx.send(content=member.mention, embed=embed, view=view)
 
 
 @bot.command(name="commands", aliases=["help_menu"])
 async def show_commands(ctx):
     try:
         await ctx.message.delete()
-    except discord.NotFound:
+    except Exception:
         pass
 
     embed = discord.Embed(
@@ -423,7 +434,7 @@ async def show_commands(ctx):
 
     embed.add_field(
         name="📋 `?appeal <@member>` *(Admin Only)*",
-        value="Spawns the interactive appeal UI form for a restricted user inside the target channel.",
+        value="Spawns the interactive appeal UI form for a restricted user in the current channel.",
         inline=False
     )
 
@@ -437,9 +448,7 @@ async def show_commands(ctx):
     )
 
     embed.set_footer(text="Requested by " + ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
-
-    target_channel = ctx.guild.get_channel(TARGET_CHANNEL_ID) or ctx.channel
-    await target_channel.send(embed=embed)
+    await ctx.send(embed=embed)
 
 
 # RUN THE BOT
