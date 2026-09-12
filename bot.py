@@ -1,7 +1,9 @@
+# BAN OVERHAUL 1.2
+import os
 import time
 import discord
 from discord.ext import commands, tasks
-import moderation  # Import your standalone moderation logic
+import moderation  # Import standalone moderation logic
 
 # --- BOT CONFIGURATION ---
 intents = discord.Intents.default()
@@ -187,7 +189,6 @@ async def on_ready():
 
 @bot.event
 async def on_member_join(member: discord.Member):
-    # Re-apply banned role if user rejoins while restricted
     unbans = moderation._read(moderation._UNBANS, [])
     is_pending = any(x["guild_id"] == member.guild.id and x["user_id"] == member.id for x in unbans)
     
@@ -203,7 +204,6 @@ async def on_member_join(member: discord.Member):
                 await member.remove_roles(*roles_to_remove, reason="Ban evasion prevention")
             await member.add_roles(banned_role, reason="Re-applied soft ban on rejoin")
 
-            # Extend ban by 1 day in persistent JSON
             moderation.schedule_unban(guild.id, member.id, 86400)
             
             target_channel = guild.get_channel(TARGET_CHANNEL_ID)
@@ -220,7 +220,6 @@ async def on_message(message: discord.Message):
     if message.author.bot or not message.guild:
         return
 
-    # Call moderation.py slur detector
     if moderation.contains_slur(message.content):
         guild = message.guild
         member = message.author
@@ -411,4 +410,4 @@ async def show_commands(ctx):
 
 
 # RUN THE BOT
-# bot.run("YOUR_DISCORD_BOT_TOKEN")
+bot.run(os.getenv("DISCORD_TOKEN"))
