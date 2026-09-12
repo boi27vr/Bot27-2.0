@@ -1,4 +1,4 @@
-# BAN OVERHAUL 1.3
+# BAN OVERHAUL 1.4
 import os
 import time
 import discord
@@ -80,48 +80,7 @@ async def apply_role_ban(guild: discord.Guild, member: discord.Member, reason: s
         return False, "Missing permissions to modify roles for this user."
 
 
-# --- APPEAL UI MODAL & VIEW ---
-class AppealTextModal(discord.ui.Modal, title="Ban Appeal - Extra Details"):
-    evidence_links = discord.ui.TextInput(
-        label="Evidence Links / Information (Optional)",
-        style=discord.TextStyle.paragraph,
-        placeholder="Paste image/video links, describe what happened, or list witnesses...",
-        required=False,
-        max_length=1000
-    )
-
-    def __init__(self, reason: str, evidence_type: str, evidence_kind: str):
-        super().__init__()
-        self.reason = reason
-        self.evidence_type = evidence_type
-        self.evidence_kind = evidence_kind
-
-    async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.send_message(
-            "✅ Your appeal has been submitted! Administrators will review your response shortly.",
-            ephemeral=True
-        )
-
-        target_channel = interaction.guild.get_channel(TARGET_CHANNEL_ID) or interaction.channel
-        
-        embed = discord.Embed(
-            title="📥 New Ban Appeal Submitted",
-            color=discord.Color.gold(),
-            timestamp=interaction.created_at
-        )
-        embed.set_author(name=f"{interaction.user} ({interaction.user.id})", icon_url=interaction.user.display_avatar.url)
-        embed.add_field(name="Reason for Appeal", value=self.reason, inline=False)
-        embed.add_field(name="Has Evidence?", value=self.evidence_type, inline=True)
-        embed.add_field(name="Evidence Type", value=self.evidence_kind, inline=True)
-        embed.add_field(
-            name="Details / Links",
-            value=self.evidence_links.value if self.evidence_links.value else "None provided.",
-            inline=False
-        )
-
-        await target_channel.send(embed=embed)
-
-
+# --- APPEAL UI VIEW & THREAD CREATION ---
 class AppealView(discord.ui.View):
     def __init__(self, target_user: discord.Member):
         super().__init__(timeout=300)
@@ -137,7 +96,7 @@ class AppealView(discord.ui.View):
         return True
 
     @discord.ui.select(
-        placeholder="Why should you be unbanned?",
+        placeholder="Why should you be unbanned? (Required)",
         min_values=1, max_values=1,
         options=[
             discord.SelectOption(label="There was an error", value="There was an error", emoji="⚠️"),
@@ -153,7 +112,7 @@ class AppealView(discord.ui.View):
         await interaction.response.send_message(f"Selected reason: **{self.reason}**", ephemeral=True)
 
     @discord.ui.select(
-        placeholder="Do you have evidence?",
+        placeholder="Do you have evidence? (Required)",
         min_values=1, max_values=1,
         options=[
             discord.SelectOption(label="Yes", value="Yes", emoji="✅"),
@@ -184,18 +143,64 @@ class AppealView(discord.ui.View):
 
     @discord.ui.button(label="Submit Appeal", style=discord.ButtonStyle.green, row=3)
     async def submit_appeal(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Validate that required questions are answered
         if not self.reason or not self.has_evidence:
             return await interaction.response.send_message(
-                "⚠️ Please select both a **reason** and **evidence status** before submitting!",
+                "⚠️ **Incomplete Appeal!** You must answer both **Why should you be unbanned?** and **Do you have evidence?** before submitting.",
                 ephemeral=True
             )
-        
-        modal = AppealTextModal(
-            reason=self.reason,
-            evidence_type=self.has_evidence,
-            evidence_kind=self.evidence_kind
+
+        guild = interaction.guild
+        boi_member = discord.utils.get(guild.members, name="boi27vr")
+        boi_ping = boi_member.mention if boi_member else "@boi27vr"
+
+        # Disable all UI elements after submission
+        for child in self.children:
+            child.disabled = True
+        await interaction.message.edit(view=self)
+
+        await interaction.response.send_message(
+            "✅ **Appeal Submitted!** A private ticket thread has been created for your appeal review.",
+            ephemeral=True
         )
-        await interaction.response.send_modal(modal)
+
+        # Create private thread in target channel
+        target_channel = guild.get_channel(TARGET_CHANNEL_ID) or interaction.channel
+        thread = await target_channel.create_thread(
+            name=f"Appeal - {interaction.user.name}",
+            type=discord.ChannelType.private_thread,
+            auto_archive_duration=1440,
+            reason=f"Ban appeal thread for {interaction.user}"
+        )
+
+        # Add appealing member and boi27vr to private thread
+        await thread.add_user(interaction.user)
+        if boi_member:
+            await thread.add_user(boi_member)
+
+        # Initial explanation embed in thread
+        embed = discord.Embed(
+            title="📋 Ban Appeal Information",
+            description=f"A new appeal thread has been opened for {interaction.user.mention}.",
+            color=discord.Color.blue(),
+            timestamp=interaction.created_at
+        )
+        embed.add_field(name="Reason Stated", value=self.reason, inline=False)
+        embed.add_field(name="Has Evidence?", value=self.has_evidence, inline=True)
+        embed.add_field(name="Evidence Type", value=self.evidence_kind, inline=True)
+
+        await thread.send(
+            content=f"🚨 {boi_ping} — A new ban appeal has been submitted by {interaction.user.mention}!",
+            embed=embed
+        )
+
+        # Prompt user to elaborate and upload evidence
+        await thread.send(
+            f"Hello {interaction.user.mention},\n\n"
+            "Please use this private thread to **elaborate on what happened** and **upload/paste any relevant evidence** "
+            f"(screenshots, videos, or witness information regarding your choice: *{self.evidence_kind}*).\n"
+            "Staff will review your evidence and update your case here."
+        )
 
 
 # --- BOT EVENTS & ESCALATION LOGIC ---
@@ -367,8 +372,8 @@ async def prompt_appeal(ctx, member: discord.Member):
         title="📋 Ban Appeal Form",
         description=(
             f"Hello {member.mention},\n\n"
-            "An administrator has opened an appeal form for you. Please fill out the dropdown options below "
-            "and click **Submit Appeal** to submit your case to server staff."
+            "An administrator has opened an appeal form for you. Please select your choices in the dropdown options below "
+            "and click **Submit Appeal** to start a private appeal ticket."
         ),
         color=discord.Color.blue()
     )
