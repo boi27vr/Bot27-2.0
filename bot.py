@@ -1,27 +1,26 @@
-# BAN OVERHAUL 1.7
 import os
+import random
+import string
 import discord
 from discord.ext import commands, tasks
 from aiohttp import web
-import moderation  # Import standalone moderation logic
+import moderation
 
 # --- BOT CONFIGURATION ---
 intents = discord.Intents.default()
 intents.members = True
 intents.message_content = True
 
-bot = commands.Bot(command_prefix="?", intents=intents)
+bot = commands.Bot(command_prefix="?", intents=intents, help_command=None)
 
-# Target Channel ID for logging system alerts and ban evasions
 TARGET_CHANNEL_ID = 1460084752274165823
-
-# Historical ban logging set
 historical_bans = set()
+message_counts = {}
+file_counts = {}
 
-
-# --- WEB SERVER FOR RENDER PORT CHECK ---
+# --- WEB SERVER FOR RENDER ---
 async def handle_health(request):
-    return web.Response(text="Bot is online and healthy!")
+    return web.Response(text="Bot is online!")
 
 async def start_web_server():
     app = web.Application()
@@ -32,36 +31,28 @@ async def start_web_server():
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
 
-
-# --- DURATION PARSER HELPER ---
+# --- HELPER FUNCTIONS ---
 def parse_duration(duration_str: str):
-    """Converts duration strings like '10s', '30m', '12h', '1d' into total seconds."""
     if not duration_str or duration_str.lower() in ["perm", "permanent"]:
         return None
     unit = duration_str[-1].lower()
     if unit not in ["s", "m", "h", "d"]:
         return None
     try:
-        value = int(duration_str[:-1])
-        multipliers = {"s": 1, "m": 60, "h": 3600, "d": 86400}
-        return value * multipliers[unit]
+        val = int(duration_str[:-1])
+        mult = {"s": 1, "m": 60, "h": 3600, "d": 86400}
+        return val * mult[unit]
     except ValueError:
         return None
 
-
-# --- ROLE BAN HELPER ---
 async def apply_role_ban(guild: discord.Guild, member: discord.Member, reason: str = "Unspecified"):
     banned_role = discord.utils.get(guild.roles, name="Banned")
     if not banned_role:
         try:
-            banned_role = await guild.create_role(
-                name="Banned",
-                color=discord.Color.dark_gray(),
-                reason="Auto-created Banned role for soft-ban restriction system."
-            )
+            banned_role = await guild.create_role(name="Banned", color=discord.Color.dark_gray())
         except discord.Forbidden:
-            return False, "Missing permissions to create the 'Banned' role."
-
+            return False, "Missing permissions to create 'Banned' role."
+    
     roles_to_remove = [r for r in member.roles if r != guild.default_role and r < guild.me.top_role]
     try:
         if roles_to_remove:
@@ -69,346 +60,313 @@ async def apply_role_ban(guild: discord.Guild, member: discord.Member, reason: s
         await member.add_roles(banned_role, reason=f"Banned: {reason}")
         return True, None
     except discord.Forbidden:
-        return False, "Missing permissions to modify roles for this user."
+        return False, "Missing permissions to modify user roles."
 
-
-# --- APPEAL UI VIEW & THREAD CREATION ---
-class AppealView(discord.ui.View):
+# --- INTERACTIVE ROLE BUTTON PANEL ---
+class RoleView(discord.ui.View):
     def __init__(self):
-        super().__init__(timeout=None)  # Persistent menu
-        self.user_selections = {}
+        super().__init__(timeout=None)
 
-    @discord.ui.select(
-        placeholder="Why should you be unbanned? (Required)",
-        min_values=1, max_values=1,
-        options=[
-            discord.SelectOption(label="There was an error", value="There was an error", emoji="⚠️"),
-            discord.SelectOption(label="They overexaggerated", value="They overexaggerated", emoji="⚖️"),
-            discord.SelectOption(label="Account was compromised/hacked", value="Account compromised", emoji="🔒"),
-            discord.SelectOption(label="Other reason", value="Other reason", emoji="❓"),
-        ],
-        row=0
-    )
-    async def select_reason(self, interaction: discord.Interaction, select: discord.ui.Select):
-        user_id = interaction.user.id
-        if user_id not in self.user_selections:
-            self.user_selections[user_id] = {"reason": None, "has_evidence": None, "evidence_kind": "None"}
-        self.user_selections[user_id]["reason"] = select.values[0]
-        await interaction.response.send_message(f"Selected reason: **{select.values[0]}**", ephemeral=True)
-
-    @discord.ui.select(
-        placeholder="Do you have evidence? (Required)",
-        min_values=1, max_values=1,
-        options=[
-            discord.SelectOption(label="Yes", value="Yes", emoji="✅"),
-            discord.SelectOption(label="Kinda", value="Kinda", emoji="🤔"),
-            discord.SelectOption(label="No", value="No", emoji="❌"),
-        ],
-        row=1
-    )
-    async def select_has_evidence(self, interaction: discord.Interaction, select: discord.ui.Select):
-        user_id = interaction.user.id
-        if user_id not in self.user_selections:
-            self.user_selections[user_id] = {"reason": None, "has_evidence": None, "evidence_kind": "None"}
-        self.user_selections[user_id]["has_evidence"] = select.values[0]
-        await interaction.response.send_message(f"Selected evidence status: **{select.values[0]}**", ephemeral=True)
-
-    @discord.ui.select(
-        placeholder="If so, what kind? (Optional)",
-        min_values=1, max_values=1,
-        options=[
-            discord.SelectOption(label="Video", value="Video", emoji="📹"),
-            discord.SelectOption(label="Screenshot", value="Screenshot", emoji="📸"),
-            discord.SelectOption(label="Trustable Witness", value="Trustable Witness", emoji="👁️"),
-            discord.SelectOption(label="Other", value="Other", emoji="📁"),
-            discord.SelectOption(label="None / Not Applicable", value="None", emoji="🚫"),
-        ],
-        row=2
-    )
-    async def select_evidence_kind(self, interaction: discord.Interaction, select: discord.ui.Select):
-        user_id = interaction.user.id
-        if user_id not in self.user_selections:
-            self.user_selections[user_id] = {"reason": None, "has_evidence": None, "evidence_kind": "None"}
-        self.user_selections[user_id]["evidence_kind"] = select.values[0]
-        await interaction.response.send_message(f"Selected evidence type: **{select.values[0]}**", ephemeral=True)
-
-    @discord.ui.button(label="Submit Appeal", style=discord.ButtonStyle.green, row=3)
-    async def submit_appeal(self, interaction: discord.Interaction, button: discord.ui.Button):
-        user_id = interaction.user.id
-        data = self.user_selections.get(user_id, {})
-
-        reason = data.get("reason")
-        has_evidence = data.get("has_evidence")
-        evidence_kind = data.get("evidence_kind", "None")
-
-        # Check required questions
-        if not reason or not has_evidence:
-            return await interaction.response.send_message(
-                "⚠️ **Incomplete Appeal!** You must answer both **Why should you be unbanned?** and **Do you have evidence?** before submitting.",
-                ephemeral=True
-            )
-
-        guild = interaction.guild
-        boi_member = discord.utils.get(guild.members, name="boi27vr")
-        boi_ping = boi_member.mention if boi_member else "@boi27vr"
-
-        await interaction.response.send_message(
-            "✅ **Appeal Submitted!** Creating your private appeal thread now...",
-            ephemeral=True
-        )
-
-        # Create private thread attached to current channel
-        thread = await interaction.channel.create_thread(
-            name=f"Appeal - {interaction.user.name}",
-            type=discord.ChannelType.private_thread,
-            auto_archive_duration=1440,
-            reason=f"Ban appeal thread for {interaction.user}"
-        )
-
-        await thread.add_user(interaction.user)
-        if boi_member:
-            await thread.add_user(boi_member)
-
-        embed = discord.Embed(
-            title="📋 Ban Appeal Details",
-            description=f"Appeal thread created for {interaction.user.mention}.",
-            color=discord.Color.blue(),
-            timestamp=interaction.created_at
-        )
-        embed.add_field(name="Reason Stated", value=reason, inline=False)
-        embed.add_field(name="Has Evidence?", value=has_evidence, inline=True)
-        embed.add_field(name="Evidence Type", value=evidence_kind, inline=True)
-
-        await thread.send(
-            content=f"🚨 {boi_ping} — A new ban appeal thread has been created for {interaction.user.mention}!",
-            embed=embed
-        )
-
-        await thread.send(
-            f"Hello {interaction.user.mention},\n\n"
-            "Please use this private thread to **elaborate on what happened** and **provide any relevant evidence** "
-            f"(screenshots, videos, or witnesses corresponding to your choice: *{evidence_kind}*)."
-        )
-
-        # Reset selection state for this user
-        self.user_selections.pop(user_id, None)
-
+    @discord.ui.button(label="Notifications", style=discord.ButtonStyle.primary, custom_id="role_notifs")
+    async def toggle_notifs(self, interaction: discord.Interaction, button: discord.ui.Button):
+        role = discord.utils.get(interaction.guild.roles, name="Notifications")
+        if not role:
+            return await interaction.response.send_message("❌ Role 'Notifications' does not exist.", ephemeral=True)
+        if role in interaction.user.roles:
+            await interaction.user.remove_roles(role)
+            await interaction.response.send_message("Removed Notifications role!", ephemeral=True)
+        else:
+            await interaction.user.add_roles(role)
+            await interaction.response.send_message("Added Notifications role!", ephemeral=True)
 
 # --- BOT EVENTS ---
 @bot.event
 async def on_ready():
-    print(f"Logged in as {bot.user.name} ({bot.user.id})")
-    
+    print(f"Logged in as {bot.user.name}")
     if not hasattr(bot, 'web_server_started'):
         bot.loop.create_task(start_web_server())
         bot.web_server_started = True
-
     if not check_ban_expirations.is_running():
         check_ban_expirations.start()
-
-
-@bot.event
-async def on_member_join(member: discord.Member):
-    unbans = moderation._read(moderation._UNBANS, [])
-    is_pending = any(x["guild_id"] == member.guild.id and x["user_id"] == member.id for x in unbans)
-    
-    if is_pending:
-        guild = member.guild
-        boi_member = discord.utils.get(guild.members, name="boi27vr")
-        boi_ping = boi_member.mention if boi_member else "@boi27vr"
-
-        banned_role = discord.utils.get(guild.roles, name="Banned")
-        if banned_role:
-            roles_to_remove = [r for r in member.roles if r != guild.default_role]
-            if roles_to_remove:
-                try:
-                    await member.remove_roles(*roles_to_remove, reason="Ban evasion prevention")
-                except discord.Forbidden:
-                    pass
-            try:
-                await member.add_roles(banned_role, reason="Re-applied soft ban on rejoin")
-            except discord.Forbidden:
-                pass
-
-            moderation.schedule_unban(guild.id, member.id, 86400)
-            
-            target_channel = guild.get_channel(TARGET_CHANNEL_ID)
-            if target_channel:
-                await target_channel.send(
-                    f"🚨 {boi_ping} **BAN EVASION DETECTED** 🚨\n"
-                    f"{member.mention} (`{member.id}`) attempted to evade a soft ban by leaving and rejoining!\n"
-                    f"⏱️ **Penalty Added:** +1 Day added to unban schedule."
-                )
-
 
 @bot.event
 async def on_message(message: discord.Message):
     if message.author.bot or not message.guild:
         return
 
-    # Slur check
-    if moderation.contains_slur(message.content):
-        guild = message.guild
-        member = message.author
-        boi_member = discord.utils.get(guild.members, name="boi27vr")
-        boi_ping = boi_member.mention if boi_member else "@boi27vr"
+    # Track message and file stats
+    uid = message.author.id
+    message_counts[uid] = message_counts.get(uid, 0) + 1
+    if message.attachments:
+        file_counts[uid] = file_counts.get(uid, 0) + len(message.attachments)
 
+    # Slur Detection
+    if moderation.contains_slur(message.content):
         try:
             await message.delete()
         except Exception:
             pass
-
-        action, count = moderation.next_action(guild.id, member.id)
-        target_channel = guild.get_channel(TARGET_CHANNEL_ID) or message.channel
-
+        action, count = moderation.next_action(message.guild.id, message.author.id)
+        ch = message.guild.get_channel(TARGET_CHANNEL_ID) or message.channel
+        
         if action == "warn":
-            await target_channel.send(
-                f"⚠️ {member.mention} **WARNING (Strike 1/3)**: Prohibited language detected.\n"
-                f"Further violations will result in automated temporary or permanent bans."
-            )
+            await ch.send(f"⚠️ {message.author.mention} **WARNING (Strike 1/3)**: Prohibited language detected.")
         elif action == "weekban":
-            success, err = await apply_role_ban(guild, member, "Slur detection - Strike 2 (7-Day Ban)")
-            if success:
-                WEEK_IN_SECONDS = 7 * 86400
-                moderation.schedule_unban(guild.id, member.id, WEEK_IN_SECONDS)
-                historical_bans.add(f"{member.name} ({member.id})")
-                await target_channel.send(
-                    f"🚨 {boi_ping} **AUTOMATIC 7-DAY BAN (Strike 2/3)** 🚨\n"
-                    f"User {member.mention} (`{member.id}`) was restricted for 7 days."
-                )
+            await apply_role_ban(message.guild, message.author, "Slur - Strike 2")
+            moderation.schedule_unban(message.guild.id, message.author.id, 7 * 86400)
+            await ch.send(f"🚨 **AUTOMATIC 7-DAY BAN (Strike 2/3)** for {message.author.mention}.")
         elif action == "permban":
-            success, err = await apply_role_ban(guild, member, "Slur detection - Strike 3 (Permanent Ban)")
-            if success:
-                moderation.cancel_pending_unban(guild.id, member.id)
-                historical_bans.add(f"{member.name} ({member.id})")
-                await target_channel.send(
-                    f"🚨 {boi_ping} **AUTOMATIC PERMANENT BAN (Strike 3/3)** 🚨\n"
-                    f"User {member.mention} (`{member.id}`) was permanently restricted."
-                )
+            await apply_role_ban(message.guild, message.author, "Slur - Strike 3")
+            moderation.cancel_pending_unban(message.guild.id, message.author.id)
+            await ch.send(f"🚨 **AUTOMATIC PERMANENT BAN (Strike 3/3)** for {message.author.mention}.")
         return
 
-    # Process all normal prefix commands (?commands, ?ban, ?unban, ?appeal)
     await bot.process_commands(message)
 
-
-# --- ERROR HANDLING ---
+# --- ERROR HANDLER ---
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send(f"⚠️ **Missing Argument:** Usage: `{ctx.prefix}{ctx.command.name} {ctx.command.signature}`")
-    elif isinstance(error, commands.MissingPermissions):
-        await ctx.send("❌ You do not have permission to use this command.")
-    elif isinstance(error, commands.MemberNotFound):
-        await ctx.send("❌ Member not found in this server.")
+        await ctx.send(f"⚠️ Missing required argument! Usage: `{ctx.prefix}{ctx.command.name} {ctx.command.signature}`")
+    elif isinstance(error, (commands.MissingPermissions, commands.CheckFailure)):
+        await ctx.send("❌ You do not have permission to execute this command.")
+    elif isinstance(error, commands.BadArgument):
+        await ctx.send("⚠️ Invalid user or argument provided.")
     else:
-        print(f"Command Error in {ctx.command}: {error}")
+        print(f"Error in {ctx.command}: {error}")
 
-
-# --- PERSISTENT UNBAN PROCESSOR ---
+# --- UNBAN TASK LOOP ---
 @tasks.loop(seconds=10)
 async def check_ban_expirations():
-    due_unbans = moderation.pop_due_unbans()
-    for item in due_unbans:
+    due = moderation.pop_due_unbans()
+    for item in due:
         guild = bot.get_guild(item["guild_id"])
         if guild:
             member = guild.get_member(item["user_id"])
             if member:
-                banned_role = discord.utils.get(guild.roles, name="Banned")
-                if banned_role and banned_role in member.roles:
+                role = discord.utils.get(guild.roles, name="Banned")
+                if role and role in member.roles:
                     try:
-                        await member.remove_roles(banned_role, reason="Scheduled ban expired")
-                        target_channel = guild.get_channel(TARGET_CHANNEL_ID)
-                        if target_channel:
-                            await target_channel.send(f"✅ {member.mention}'s temporary restriction has expired!")
-                    except discord.Forbidden:
+                        await member.remove_roles(role)
+                        ch = guild.get_channel(TARGET_CHANNEL_ID)
+                        if ch:
+                            await ch.send(f"✅ {member.mention}'s temporary restriction has expired!")
+                    except Exception:
                         pass
 
+# ==========================================
+# 👑 ADMIN & MODERATION COMMANDS
+# ==========================================
 
-@check_ban_expirations.before_loop
-async def before_check_bans():
-    await bot.wait_until_ready()
+@bot.command(name="commands")
+async def show_commands_list(ctx):
+    embed = discord.Embed(title="👑 ADMIN & MODERATION COMMANDS", color=discord.Color.gold())
+    embed.description = (
+        "• `?commands` - Displays this full command list.\n"
+        "• `?help` - Shows link for bot info and command details.\n"
+        "• `?roles` - Posts the interactive button panel for server roles.\n"
+        "• `?addrole @User <Role>` - Manually adds a role to a user.\n"
+        "• `?removerole @User <Role>` - Manually removes a role from a user.\n"
+        "• `?warn @User [reason]` - Warns a user immediately.\n"
+        "• `?unwarn @User` - Clears all warnings from a user.\n"
+        "• `?tensecban @User [reason]` - Temporary 10-second ban.\n"
+        "• `?weekban @User [reason]` - 7-day server ban.\n"
+        "• `?permban @User [reason]` - Permanent server ban.\n"
+        "• `?ban @User [duration] [reason]` - Restricts user with `@Banned` role.\n"
+        "• `?unban <@User>` - Unbans a user.\n"
+        "• `?banlist` or `?bans` - Views all current and past banned users.\n"
+        "• `?falseban @User [reason]` - Sends a fake ban prank message.\n"
+        "• `?loop` - Triggers rapid 50-message loop (Admin only).\n"
+        "• `?clearcommands <number>` - Clears N pairs of command calls and bot replies."
+    )
+    await ctx.send(embed=embed)
 
+@bot.command(name="help")
+async def help_cmd(ctx):
+    await ctx.send("ℹ️ **Bot Info & Help:** For command details and moderation guidelines, check your server rules or contact staff.")
 
-# --- COMMANDS ---
+@bot.command(name="roles")
+async def roles_cmd(ctx):
+    embed = discord.Embed(title="🎭 Server Roles", description="Click below to toggle roles!", color=discord.Color.blue())
+    await ctx.send(embed=embed, view=RoleView())
+
+@bot.command(name="addrole")
+@commands.has_permissions(manage_roles=True)
+async def addrole_cmd(ctx, member: discord.Member, role: discord.Role):
+    await member.add_roles(role)
+    await ctx.send(f"✅ Added **{role.name}** to {member.mention}.")
+
+@bot.command(name="removerole")
+@commands.has_permissions(manage_roles=True)
+async def removerole_cmd(ctx, member: discord.Member, role: discord.Role):
+    await member.remove_roles(role)
+    await ctx.send(f"✅ Removed **{role.name}** from {member.mention}.")
+
+@bot.command(name="warn")
+@commands.has_permissions(manage_messages=True)
+async def warn_cmd(ctx, member: discord.Member, *, reason: str = "No reason provided"):
+    action, count = moderation.next_action(ctx.guild.id, member.id)
+    await ctx.send(f"⚠️ Warned {member.mention} (Strike #{count}). Reason: {reason}")
+
+@bot.command(name="unwarn")
+@commands.has_permissions(manage_messages=True)
+async def unwarn_cmd(ctx, member: discord.Member):
+    moderation.reset_offender(ctx.guild.id, member.id)
+    await ctx.send(f"✅ Cleared all warnings for {member.mention}.")
+
+@bot.command(name="tensecban", aliases=["10secban"])
+@commands.has_permissions(ban_members=True)
+async def tensecban_cmd(ctx, member: discord.Member, *, reason: str = "10s Temp Ban"):
+    await apply_role_ban(ctx.guild, member, reason)
+    moderation.schedule_unban(ctx.guild.id, member.id, 10)
+    await ctx.send(f"⏱️ {member.mention} restricted for 10 seconds. Reason: **{reason}**")
+
+@bot.command(name="weekban")
+@commands.has_permissions(ban_members=True)
+async def weekban_cmd(ctx, member: discord.Member, *, reason: str = "7-Day Ban"):
+    await apply_role_ban(ctx.guild, member, reason)
+    moderation.schedule_unban(ctx.guild.id, member.id, 7 * 86400)
+    await ctx.send(f"🗓️ {member.mention} restricted for 7 days. Reason: **{reason}**")
+
+@bot.command(name="permban")
+@commands.has_permissions(ban_members=True)
+async def permban_cmd(ctx, member: discord.Member, *, reason: str = "Permanent Ban"):
+    await apply_role_ban(ctx.guild, member, reason)
+    moderation.cancel_pending_unban(ctx.guild.id, member.id)
+    await ctx.send(f"⛔ {member.mention} permanently restricted. Reason: **{reason}**")
+
 @bot.command(name="ban")
 @commands.has_permissions(ban_members=True)
-async def ban_cmd(ctx, member: discord.Member, duration_str: str = "perm", *, reason: str = "Unspecified Violation"):
-    seconds = parse_duration(duration_str)
+async def ban_cmd(ctx, member: discord.Member, duration_str: str = "perm", *, reason: str = "Unspecified"):
+    secs = parse_duration(duration_str)
     success, err = await apply_role_ban(ctx.guild, member, reason)
     if not success:
-        return await ctx.send(f"❌ Failed to ban {member.mention}: {err}")
-
+        return await ctx.send(f"❌ {err}")
     historical_bans.add(f"{member.name} ({member.id})")
-    if seconds:
-        moderation.schedule_unban(ctx.guild.id, member.id, seconds)
-        await ctx.send(f"⛔ {member.mention} has been restricted for **{duration_str}**. Reason: **{reason}**")
+    if secs:
+        moderation.schedule_unban(ctx.guild.id, member.id, secs)
+        await ctx.send(f"⛔ {member.mention} restricted for **{duration_str}**. Reason: **{reason}**")
     else:
         moderation.cancel_pending_unban(ctx.guild.id, member.id)
-        await ctx.send(f"⛔ {member.mention} has been permanently restricted. Reason: **{reason}**")
-
+        await ctx.send(f"⛔ {member.mention} permanently restricted. Reason: **{reason}**")
 
 @bot.command(name="unban")
 @commands.has_permissions(ban_members=True)
-async def unban_user(ctx, member: discord.Member):
+async def unban_cmd(ctx, member: discord.Member):
     moderation.cancel_pending_unban(ctx.guild.id, member.id)
     moderation.reset_offender(ctx.guild.id, member.id)
-
-    banned_role = discord.utils.get(ctx.guild.roles, name="Banned")
-    if banned_role and banned_role in member.roles:
-        try:
-            await member.remove_roles(banned_role, reason="Unbanned by admin command")
-            await ctx.send(f"✅ Successfully unbanned {member.mention}, cleared strikes, and removed `@Banned`!")
-        except discord.Forbidden:
-            await ctx.send("❌ Permission denied while removing the Banned role.")
+    role = discord.utils.get(ctx.guild.roles, name="Banned")
+    if role and role in member.roles:
+        await member.remove_roles(role)
+        await ctx.send(f"✅ Unbanned {member.mention} and reset strikes!")
     else:
-        await ctx.send(f"{member.mention} does not have the **Banned** role.")
+        await ctx.send(f"User {member.mention} is not restricted.")
 
+@bot.command(name="banlist", aliases=["bans"])
+async def banlist_cmd(ctx):
+    if not historical_bans:
+        return await ctx.send("📜 No tracked bans recorded in this session.")
+    await ctx.send("📜 **Recorded Bans:**\n" + "\n".join(f"• {b}" for b in historical_bans))
 
-@bot.command(name="appeal")
+@bot.command(name="falseban")
+async def falseban_cmd(ctx, member: discord.Member, *, reason: str = "Trolling"):
+    await ctx.send(f"🚨 **SYSTEM NOTICE:** {member.mention} has been **PERMANENTLY BANNED** from the server. Reason: `{reason}`\n*(Just kidding! 😜)*")
+
+@bot.command(name="loop")
 @commands.has_permissions(administrator=True)
-async def prompt_appeal(ctx):
-    embed = discord.Embed(
-        title="📋 Ban Appeal Form",
-        description=(
-            "If you are restricted, select your options below and click **Submit Appeal** "
-            "to open a private thread with staff."
-        ),
-        color=discord.Color.blue()
-    )
-    view = AppealView()
-    await ctx.send(embed=embed, view=view)
+async def loop_cmd(ctx):
+    for i in range(1, 51):
+        await ctx.send(f"🔄 Loop Message #{i}")
 
+@bot.command(name="clearcommands")
+@commands.has_permissions(manage_messages=True)
+async def clearcommands_cmd(ctx, amount: int = 5):
+    await ctx.channel.purge(limit=(amount * 2) + 1)
 
-@bot.command(name="commands", aliases=["help_menu"])
-async def show_commands(ctx):
-    embed = discord.Embed(
-        title="🤖 Bot Command List & Moderation Guide",
-        description="Here is the complete list of available moderation commands.",
-        color=discord.Color.blue()
-    )
-    embed.add_field(
-        name="⛔ `?ban <@member> [duration] [reason]`",
-        value="Restricts a member by removing roles and giving `@Banned`.\n• Examples: `10s`, `30m`, `12h`, `1d`, `perm`",
-        inline=False
-    )
-    embed.add_field(
-        name="✅ `?unban <@member>`",
-        value="Removes `@Banned`, cancels pending temp-unban timers, and resets slur strike counts.",
-        inline=False
-    )
-    embed.add_field(
-        name="📋 `?appeal` *(Admin Only)*",
-        value="Spawns the interactive appeal UI menu in the channel for users to open appeal threads.",
-        inline=False
-    )
-    embed.add_field(
-        name="🛡️ Automatic Security Systems",
-        value="• Slur Escalation: Strike 1 Warning, Strike 2 (7-Day Ban), Strike 3 (Permanent Ban).\n• Ban Evasion: Re-applies `@Banned`, +1 Day penalty, alerts `@boi27vr`.",
-        inline=False
-    )
-    embed.set_footer(text="Requested by " + ctx.author.display_name, icon_url=ctx.author.display_avatar.url)
-    await ctx.send(embed=embed)
+# ==========================================
+# 📊 STATS & TRACKING COMMANDS
+# ==========================================
 
+@bot.command(name="messages")
+async def messages_cmd(ctx, member: discord.Member = None):
+    target = member or ctx.author
+    count = message_counts.get(target.id, 0)
+    await ctx.send(f"📊 {target.mention} has sent **{count}** messages since the bot went online.")
 
-# RUN THE BOT
+@bot.command(name="files")
+async def files_cmd(ctx, member: discord.Member = None):
+    target = member or ctx.author
+    count = file_counts.get(target.id, 0)
+    await ctx.send(f"📁 {target.mention} has uploaded **{count}** files/attachments.")
+
+# ==========================================
+# 📜 SERVER INFO COMMANDS
+# ==========================================
+
+@bot.command(name="rule")
+async def rule_cmd(ctx, number: int = 1):
+    rules = {
+        1: "Be respectful to everyone in the server.",
+        2: "No spamming or self-promotion.",
+        3: "No hate speech, slurs, or harassment.",
+        4: "Keep topics in their designated channels.",
+        5: "Follow Discord Terms of Service at all times."
+    }
+    msg = rules.get(number, f"Follow staff instructions and common sense.")
+    await ctx.send(f"📜 **Rule {number}:** {msg}")
+
+@bot.command(name="botinfo")
+async def botinfo_cmd(ctx):
+    await ctx.send("🤖 **Bot Info:** Running custom moderation suite, slur detection, and role management.")
+
+@bot.command(name="serverinfo")
+async def serverinfo_cmd(ctx):
+    await ctx.send(f"🏰 **Server Info:** `{ctx.guild.name}` | Total Members: **{ctx.guild.member_count}**")
+
+# ==========================================
+# 🎉 FUN & UTILITY COMMANDS
+# ==========================================
+
+@bot.command(name="meow")
+async def meow_cmd(ctx, count: int = 1):
+    count = min(max(1, count), 50)
+    await ctx.send(" ".join(["meow"] * count) + " :3")
+
+@bot.command(name="dice")
+async def dice_cmd(ctx, limit: int = 6):
+    limit = max(1, limit)
+    await ctx.send(f"🎲 Rolled a **{random.randint(1, limit)}** (1-{limit})")
+
+@bot.command(name="nonsense")
+async def nonsense_cmd(ctx, length: int = 10):
+    length = min(max(1, length), 125)
+    rand_str = ''.join(random.choices(string.ascii_letters + string.digits + "!@#$%^&*", k=length))
+    await ctx.send(f"🔣 `{rand_str}`")
+
+@bot.command(name="uwu")
+async def uwu_cmd(ctx, *, text: str = "hello world"):
+    translated = text.replace("r", "w").replace("l", "w").replace("R", "W").replace("L", "W") + " :3"
+    await ctx.send(translated)
+
+@bot.command(name="queer")
+async def queer_cmd(ctx, *, term: str = None):
+    terms = {
+        "lesbian": "Non-men attracted to non-men.",
+        "gay": "Men attracted to men, or a general term for attraction to the same gender.",
+        "bi": "Attraction to two or more genders.",
+        "trans": "Having a gender identity that differs from the sex assigned at birth.",
+        "ace": "Experiencing little to no sexual attraction."
+    }
+    if term and term.lower() in terms:
+        await ctx.send(f"🏳️‍🌈 **{term.capitalize()}:** {terms[term.lower()]}")
+    else:
+        key = random.choice(list(terms.keys()))
+        await ctx.send(f"🏳️‍🌈 **{key.capitalize()}:** {terms[key]}")
+
+@bot.command(name="emoji")
+async def emoji_cmd(ctx, count: int = 1):
+    emojis = ["😃", "😂", "🔥", "✨", "🎉", "💀", "🤖", "🍕", "⭐", "👾"]
+    count = min(max(1, count), 50)
+    await ctx.send("".join(random.choices(emojis, k=count)))
+
 bot.run(os.getenv("DISCORD_TOKEN"))
